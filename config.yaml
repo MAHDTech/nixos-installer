@@ -3,7 +3,7 @@
 hostId: "04074ddc"
 
 # The flake to use for the installation.
-flake: github:MAHDTech/nix-config
+flake: github:MAHDTech/nix-config#NUC
 
 # Settings for the UEFI partition.
 uefi:
@@ -27,3 +27,4 @@ zfs:
 swap:
   enabled: true
   size: 4GiB
+ 

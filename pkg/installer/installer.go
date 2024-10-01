@@ -363,18 +363,6 @@ func Run() {
 
 	log.Println("Creating ZFS datasets.")
 
-	// Create the boot dataset.
-	zfsDatasetPathBoot := path.Join(zfsPool, zfsDatasetBoot)
-	log.Printf("Creating boot dataset: %s\n", zfsDatasetPathBoot)
-	utils.Execute(
-		*execute,
-		"zfs",
-		"create",
-		"-o",
-		"mountpoint=legacy",
-		zfsDatasetPathBoot,
-	)
-
 	// Create the root dataset.
 	zfsDatasetPathRoot := path.Join(zfsPool, zfsDatasetRoot)
 	log.Printf("Creating root dataset: %s\n", zfsDatasetPathRoot)
@@ -385,6 +373,18 @@ func Run() {
 		"-o",
 		"mountpoint=legacy",
 		zfsDatasetPathRoot,
+	)
+
+	// Create the boot dataset.
+	zfsDatasetPathBoot := path.Join(zfsPool, zfsDatasetBoot)
+	log.Printf("Creating boot dataset: %s\n", zfsDatasetPathBoot)
+	utils.Execute(
+		*execute,
+		"zfs",
+		"create",
+		"-o",
+		"mountpoint=legacy",
+		zfsDatasetPathBoot,
 	)
 
 	// Create the home dataset.

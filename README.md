@@ -1,13 +1,14 @@
 # nix-installer
 
-Installs NixOS in an opinionated way
+Installs NixOS using ZFS in an opinionated way.
 
 ## Background
 
-This installs NixOS in an opinionated way;
+This installs NixOS;
 
-- Uses a dedicated UEFI drive.
-- Uses entire disk for ZFS as the root filesystem with optional stripe or mirror.
+- Using a dedicated UEFI drive.
+- Uses entire disk or disks for ZFS as the root filesystem with optional stripe or mirror.
+- Configures common mount paths as ZFS datasets
 - Configures the system to use the specified flake
 
 ## Usage
