@@ -1,0 +1,29 @@
+---
+# The host ID to use for the installation.
+hostId: "host-abc123"
+
+# The flake to use for the installation.
+flake: github:MAHDTech/nix-config
+
+# Settings for the UEFI partition.
+uefi:
+  disk: /dev/disk/by-id/<id_of_uefi_disk>
+  label: ESP
+  size: 4GiB
+
+# Settings for the ZFS pool.
+zfs:
+  pool:
+    name: ZPOOL
+    compression: true
+    encryption: true
+    mirror: false
+    stripe: true
+  disks:
+    - /dev/disk/by-id/<id_of_zfs_disk_1>
+    - /dev/disk/by-id/<id_of_optional_zfs_disk_2>
+
+# Settings for the swap partition.
+swap:
+  enabled: false
+  size: 4GiB
