@@ -10,16 +10,20 @@ import (
 )
 
 type Config struct {
-	HostID string `yaml:"hostId" validate:"required"`
+	// HostID is optional and will be generated if not specified.
+	HostID string `yaml:"hostId" default:""`
 
-	Flake string `yaml:"flake" validate:"required"`
+	// Flake is optional.
+	Flake string `yaml:"flake" default:""`
 
+	// UEFI is required.
 	UEFI struct {
 		Label string `yaml:"label" validate:"required"`
 		Disk  string `yaml:"disk" validate:"required"`
 		Size  string `yaml:"size" validate:"required"`
 	} `yaml:"uefi" validate:"required"`
 
+	// ZFS is required.
 	ZFS struct {
 		Pool struct {
 			Name        string `yaml:"name" validate:"required"`
@@ -31,6 +35,7 @@ type Config struct {
 		Disks []string `yaml:"disks" validate:"required"`
 	} `yaml:"zfs" validate:"required"`
 
+	// Swap defaults to disabled.
 	Swap struct {
 		Enabled bool   `yaml:"enabled" default:"false"`
 		Size    string `yaml:"size" validate:"required"`
@@ -39,13 +44,27 @@ type Config struct {
 
 // ReadConfig reads the configuration file.
 func ReadConfig(configFile string) (Config, error) {
+
+	// Check if the config file exists.
+	if !utils.FileExists(configFile) {
+		return Config{}, errors.New("config file not found: " + configFile)
+	}
+
+	// Read the config file.
 	yamlFile, err := os.ReadFile(configFile)
 	if err != nil {
 		return Config{}, err
 	}
 
+	// Parse the YAML file.
 	var config Config
 	err = yaml.Unmarshal(yamlFile, &config)
+	if err != nil {
+		return Config{}, err
+	}
+
+	// Validate the config.
+	err = validateConfig(&config)
 	if err != nil {
 		return Config{}, err
 	}
@@ -54,7 +73,7 @@ func ReadConfig(configFile string) (Config, error) {
 }
 
 // ValidateConfig validates the configuration file.
-func ValidateConfig(configData *Config) error {
+func validateConfig(configData *Config) error {
 	// Make sure a flake was specified.
 	if configData.Flake == "" {
 		return errors.New("flake not specified")

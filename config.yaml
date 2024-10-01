@@ -1,13 +1,13 @@
 ---
 # The host ID to use for the installation.
-hostId: "host-abc123"
+hostId: "04074ddc"
 
 # The flake to use for the installation.
 flake: github:MAHDTech/nix-config
 
 # Settings for the UEFI partition.
 uefi:
-  disk: /dev/disk/by-id/<id_of_uefi_disk>
+  disk: /dev/disk/by-id/usb-SanDisk_Cruzer_Dial_4C530000171227116262-0:0
   label: ESP
   size: 4GiB
 
@@ -20,10 +20,10 @@ zfs:
     mirror: false
     stripe: true
   disks:
-    - /dev/disk/by-id/<id_of_zfs_disk_1>
-    - /dev/disk/by-id/<id_of_optional_zfs_disk_2>
+    - /dev/disk/by-id/nvme-Corsair_MP600_PRO_NH_A5JVB427305AF2
+    - /dev/disk/by-id/nvme-Corsair_MP600_PRO_NH_A5JVB4273059HX
 
 # Settings for the swap partition.
 swap:
-  enabled: false
+  enabled: true
   size: 4GiB
