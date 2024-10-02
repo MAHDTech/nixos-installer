@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://devenv.sh/devenv.schema.json
+inputs:
+  nixpkgs:
+    url: github:cachix/devenv-nixpkgs/rolling
+
+allowUnfree: true
+
+permittedInsecurePackages: []
+
+imports: []
+
+clean:
+  enabled: true
+  keep:
+    - EDITOR
+    - GITHUB_TOKEN
+
