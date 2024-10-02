@@ -7,7 +7,7 @@ flake: github:MAHDTech/nix-config#NUC
 
 # Settings for the UEFI partition.
 uefi:
-  disk: /dev/disk/by-id/usb-SanDisk_Cruzer_Dial_4C530000171227116262-0:0
+  disk: /dev/disk/by-id/usb-Samsung_Flash_Drive_0347023040002297-0:0
   label: ESP
   size: 4GiB
 

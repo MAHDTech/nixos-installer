@@ -66,6 +66,24 @@ func Run() {
 
 	/*
 		##################################################
+			Mountpoints
+		##################################################
+	*/
+
+	// Capture all mountpoints from stdout
+	mountpointsString := utils.ExecuteStdOut(
+		true,
+		"lsblk",
+		"--noheadings",
+		"--json",
+		"--output",
+		"ID,MOUNTPOINTS",
+	)
+	// Convert the string into JSON
+	mountpointsJSON := []byte(mountpointsString)
+
+	/*
+		##################################################
 			Create directories
 		##################################################
 	*/
@@ -145,13 +163,20 @@ func Run() {
 		##################################################
 	*/
 
-	// Unmount the UEFI target device if it is mounted.
-	log.Printf("Unmounting %s if it is mounted.\n", configData.UEFI.Disk)
-	utils.ExecuteSilent(
-		*execute,
-		"umount",
+	// Determine if and where the UEFI device is currently mounted.
+	mountpointsUEFI, err := utils.GetMountpoints(
 		configData.UEFI.Disk,
+		mountpointsJSON,
 	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Unmount all mountpoints for the UEFI device
+	err = utils.UnmountAll(*execute, mountpointsUEFI)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Zap the UEFI target device.
 	log.Printf("Zapping %s.\n", configData.UEFI.Disk)
@@ -242,7 +267,7 @@ func Run() {
 		##################################################
 	*/
 
-	// Destroy any existing ZFS pool on the disks.
+	// Destroy any existing ZFS pool using that name.
 	log.Println("Destroying any existing ZFS pool on the disks.")
 	utils.ExecuteSilent(
 		*execute,
@@ -253,21 +278,26 @@ func Run() {
 	)
 
 	for _, zfsDisk := range configData.ZFS.Disks {
-		// Clear the ZFS label on the disk.
+
+		// Determine if and where the ZFS device is currently mounted.
+		mountpointsZFS, err := utils.GetMountpoints(zfsDisk, mountpointsJSON)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Unmount all mountpoints for the ZFS device
+		err = utils.UnmountAll(*execute, mountpointsZFS)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Clear any current ZFS label on the disk.
 		log.Printf("Clearing ZFS pool label on %s.\n", zfsDisk)
 		utils.ExecuteSilent(
 			*execute,
 			"zpool",
 			"labelclear",
 			"-f",
-			zfsDisk,
-		)
-
-		// Unmount the ZFS target device if it is mounted.
-		log.Printf("Unmounting %s if it is mounted.\n", zfsDisk)
-		utils.ExecuteSilent(
-			*execute,
-			"umount",
 			zfsDisk,
 		)
 
@@ -597,19 +627,26 @@ func Run() {
 
 	// Install NixOS.
 	if *executeInstall {
-		log.Println("Installing NixOS.")
+		log.Println("Installing NixOS...")
 		utils.Execute(
 			*execute,
 			"nixos-install",
 			"--verbose",
 			"--root",
 			mountPoint,
+			"--impure",
 			"--flake",
 			configData.Flake,
 		)
 	} else {
-		log.Println("You can now edit the NixOS configuration and install NixOS by running:")
-		log.Printf("nixos-install --verbose --root %s --flake %s\n", mountPoint, configData.Flake)
+		fmt.Println("")
+		fmt.Println("You can now edit the NixOS configuration and install NixOS by running:")
+		fmt.Println("")
+		fmt.Println("export NIXPKGS_ALLOW_UNFREE=1")
+		fmt.Printf("sudo -E nixos-install --verbose --root %s --impure --flake %s\n", mountPoint, configData.Flake)
+		fmt.Println("")
+		fmt.Println("If needed, remember you can re-run the nixos-install command after making additional changes before rebooting.")
+		fmt.Println("")
 	}
 
 }
