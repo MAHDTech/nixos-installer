@@ -14,10 +14,13 @@ import (
 	validate "github.com/MAHDTech/nixos-installer/pkg/validate"
 )
 
+// Where nixos will be installed to.
 const mountPoint = "/mnt/nixos"
 
+// The name of the ZFS pool.
 const zfsPool = "zpool"
 
+// The names of the ZFS datasets.
 const zfsDatasetBoot = "boot"
 const zfsDatasetRoot = "root"
 const zfsDatasetHome = "home"
@@ -117,6 +120,16 @@ func Run() {
 		"mkdir",
 		"-p",
 		mountPointUEFI,
+	)
+
+	// Create mount point for 'nixos-config'
+	mountPointNixOSConfig := path.Join(mountPoint, "boot/efi/nixos-config")
+	log.Printf("Creating mount point for 'NixOS Config' at: %s\n", mountPointNixOSConfig)
+	utils.Execute(
+		*execute,
+		"mkdir",
+		"-p",
+		mountPointNixOSConfig,
 	)
 
 	// Create mount point for 'home'
@@ -246,6 +259,23 @@ func Run() {
 		"on",
 	)
 
+	// Create the NixOS config partition.
+	log.Printf("Creating NixOS config partition on %s.\n", configData.UEFI.Disk)
+	utils.Execute(
+		*execute,
+		"parted",
+		"--script",
+		"--fix",
+		"--align",
+		"optimal",
+		configData.UEFI.Disk,
+		"--",
+		"mkpart",
+		"primary",
+		"xfs",
+		"100%",
+	);
+
 	// Sleep a few seconds to allow the partition table to update.
 	if *execute {
 		log.Println("Waiting...")
@@ -262,6 +292,15 @@ func Run() {
 		"EFI",
 		partitionNameUEFI,
 	)
+
+	// Format the NixOS config partition.
+	partitionNameNixOSConfig := fmt.Sprintf("%s-part2", configData.UEFI.Disk)
+	log.Printf("Formatting NixOS config partition: %s\n", partitionNameNixOSConfig)
+	utils.Execute(
+		*execute,
+		"mkfs.xfs",
+		partitionNameNixOSConfig,
+	);
 
 	/*
 		##################################################
@@ -550,6 +589,17 @@ func Run() {
 		mountPointUEFI,
 	)
 
+	// Mount the NixOS config partition.
+	log.Printf("Mounting %s to %s.\n", partitionNameNixOSConfig, mountPointNixOSConfig)
+	utils.Execute(
+		*execute,
+		"mount",
+		"-t",
+		"xfs",
+		partitionNameNixOSConfig,
+		mountPointNixOSConfig,
+	);
+
 	// Mount the home dataset.
 	log.Printf("Mounting %s to %s.\n", zfsDataSetPathHome, mountPointHome)
 	utils.Execute(
@@ -699,6 +749,7 @@ func Run() {
 		fmt.Println("")
 		fmt.Println("If needed, remember you can re-run the nixos-install command after making additional changes before rebooting.")
 		fmt.Println("")
+		fmt.Printf("Reminder: If you are using the nixos-config partition, copy your flake to %s", mountPointNixOSConfig)
 	}
 
 }
