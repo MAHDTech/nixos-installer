@@ -25,6 +25,8 @@ const zfsDatasetNixStore = "nix"
 const zfsDatasetSwap = "swap"
 const zfsDatasetTmp = "tmp"
 const zfsDatasetVar = "var"
+const zfsDatasetLib = "var/lib"
+const zfsDatasetDocker = "var/lib/docker"
 
 func Run() {
 
@@ -477,6 +479,30 @@ func Run() {
 		zfsDataSetPathVar,
 	)
 
+	// Create the lib dataset.
+	zfsDataSetPathLib := path.Join(zfsPool, zfsDatasetLib)
+	log.Printf("Creating lib dataset: %s\n", zfsDataSetPathLib)
+	utils.Execute(
+		*execute,
+		"zfs",
+		"create",
+		"-o",
+		"mountpoint=legacy",
+		zfsDataSetPathLib,
+	)
+
+	// Create the docker dataset.
+	zfsDataSetPathDocker := path.Join(zfsPool, zfsDatasetDocker)
+	log.Printf("Creating docker dataset: %s\n", zfsDataSetPathDocker)
+	utils.Execute(
+		*execute,
+		"zfs",
+		"create",
+		"-o",
+		"mountpoint=legacy",
+		zfsDataSetPathDocker,
+	)
+
 	/*
 		##################################################
 			Mount directories
@@ -561,6 +587,32 @@ func Run() {
 		"zfs",
 		zfsDataSetPathVar,
 		mountPointVar,
+	)
+
+	// Mount the lib dataset.
+	log.Printf("Mounting %s to %s.\n", zfsDataSetPathLib, mountPointLib)
+	utils.Execute(
+		*execute,
+		"mount",
+		"-o",
+		"X-mount.mkdir",
+		"-t",
+		"zfs",
+		zfsDataSetPathLib,
+		mountPointLib,
+	)
+
+	// Mount the docker dataset.
+	log.Printf("Mounting %s to %s.\n", zfsDataSetPathDocker, mountPointDocker)
+	utils.Execute(
+		*execute,
+		"mount",
+		"-o",
+		"X-mount.mkdir",
+		"-t",
+		"zfs",
+		zfsDataSetPathDocker,
+		mountPointDocker,
 	)
 
 	// Mount the tmp dataset.
