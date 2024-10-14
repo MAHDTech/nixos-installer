@@ -23,7 +23,7 @@ This installs NixOS;
 vim /tmp/config.yaml
 ```
 
-4. Run the installer
+4. Run the installer (nix version)
 
 ```bash
 # Dry run
@@ -43,3 +43,19 @@ nix \
         -config /tmp/config.yaml \
         -run
 ```
+
+6. Or, run the installer (go version)
+
+```bash
+nix-shell -p git go
+
+# Dry run
+sudo go run main.go \
+  -config /tmp/config.yaml
+
+# Nuke all the things
+sudo go run main.go \
+  -config /tmp/config.yaml \
+  -run
+```
+

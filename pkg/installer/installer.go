@@ -123,8 +123,8 @@ func Run() {
 	)
 
 	// Create mount point for 'nixos-config'
-	mountPointNixOSConfig := path.Join(mountPoint, "boot/efi/nixos-config")
-	log.Printf("Creating mount point for 'NixOS Config' at: %s\n", mountPointNixOSConfig)
+	mountPointNixOSConfig := path.Join(mountPoint, "boot/nixos-config")
+	log.Printf("Creating mount point for 'nixos-config' at: %s\n", mountPointNixOSConfig)
 	utils.Execute(
 		*execute,
 		"mkdir",
@@ -160,6 +160,26 @@ func Run() {
 		"mkdir",
 		"-p",
 		mountPointVar,
+	)
+
+	// Create mount point for 'lib'
+	mountPointLib := path.Join(mountPoint, "var/lib")
+	log.Printf("Creating mount point for 'var' at: %s\n", mountPointLib)
+	utils.Execute(
+		*execute,
+		"mkdir",
+		"-p",
+		mountPointLib,
+	)
+
+	// Create mount point for 'docker'
+	mountPointDocker := path.Join(mountPoint, "var/lib/docker")
+	log.Printf("Creating mount point for 'var' at: %s\n", mountPointDocker)
+	utils.Execute(
+		*execute,
+		"mkdir",
+		"-p",
+		mountPointDocker,
 	)
 
 	// Create mount point for 'tmp'
@@ -271,8 +291,9 @@ func Run() {
 		configData.UEFI.Disk,
 		"--",
 		"mkpart",
-		"primary",
+		"nixos-config",
 		"xfs",
+		configData.UEFI.Size,
 		"100%",
 	);
 
@@ -299,6 +320,7 @@ func Run() {
 	utils.Execute(
 		*execute,
 		"mkfs.xfs",
+		"-f",
 		partitionNameNixOSConfig,
 	);
 
@@ -594,6 +616,8 @@ func Run() {
 	utils.Execute(
 		*execute,
 		"mount",
+		"-o",
+		"X-mount.mkdir",
 		"-t",
 		"xfs",
 		partitionNameNixOSConfig,
