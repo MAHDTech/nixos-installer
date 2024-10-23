@@ -17,10 +17,12 @@ This installs NixOS;
 
 2. Setup Networking
 
-3. Create a YAML configuration file (see config.yaml for an example)
+3. Create a YAML configuration file (see configs folder for examples)
 
 ```bash
-vim /tmp/config.yaml
+CONFIG_FILE="/tmp/config.yaml"
+
+vim "${CONFIG_FILE}"
 ```
 
 4. Run the installer (nix version)
@@ -32,7 +34,7 @@ nix \
     --extra-experimental-features flakes \
     run github:MAHDTech/nixos-installer \
     -- \
-        -config /tmp/config.yaml
+        -config "${CONFIG_FILE}"
 
 # Nuke all the things.
 nix \
@@ -40,7 +42,7 @@ nix \
     --extra-experimental-features flakes \
     run github:MAHDTech/nixos-installer \
     -- \
-        -config /tmp/config.yaml \
+        -config "${CONFIG_FILE}" \
         -run
 ```
 
@@ -49,13 +51,16 @@ nix \
 ```bash
 nix-shell -p git go
 
+git clone git@github.com:MAHDTech/nixos-installer.git
+
+cd nixos-installer
+
 # Dry run
 sudo go run main.go \
-  -config /tmp/config.yaml
+  -config "${CONFIG_FILE}"
 
 # Nuke all the things
 sudo go run main.go \
-  -config /tmp/config.yaml \
+  -config "${CONFIG_FILE}" \
   -run
 ```
-

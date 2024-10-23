@@ -1,0 +1,28 @@
+---
+# The host ID to use for the installation.
+hostId: "04074ddc"
+
+# The flake to use for the installation.
+flake: github:MAHDTech/nix-config#NUC
+
+# Settings for the UEFI partition.
+uefi:
+  disk: /dev/disk/by-id/usb-Samsung_Flash_Drive_FIT_0364621040007011-0:0
+  label: ESP
+  size: 4GiB
+
+# Settings for the ZFS pool.
+zfs:
+  pool:
+    name: ZPOOL
+    compression: true
+    encryption: true
+    mirror: false
+    stripe: false
+  disks:
+    - /dev/disk/by-id/nvme-Corsair_MP600_PRO_NH_A5JVB427305AF2
+
+# Settings for the swap partition.
+swap:
+  enabled: true
+  size: 69GiB
