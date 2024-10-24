@@ -123,7 +123,7 @@ func Run() {
 	)
 
 	// Create mount point for 'nixos-config'
-	mountPointNixOSConfig := path.Join(mountPoint, "boot/nixos-config")
+	mountPointNixOSConfig := path.Join(mountPoint, "boot/nixos")
 	log.Printf("Creating mount point for 'nixos-config' at: %s\n", mountPointNixOSConfig)
 	utils.Execute(
 		*execute,
