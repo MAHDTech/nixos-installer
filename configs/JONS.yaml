@@ -7,7 +7,7 @@ flake: github:MAHDTech/nix-config#JONS
 
 # Settings for the UEFI partition.
 uefi:
-  disk: /dev/disk/by-id/usb-Samsung_Flash_Drive_FIT_0372823110005095-0:0
+  disk: /dev/disk/by-id/usb-Samsung_Flash_Drive_FIT_0360721030005469-0:0
   label: ESP
   size: 4GiB
 
