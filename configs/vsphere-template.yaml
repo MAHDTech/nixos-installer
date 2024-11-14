@@ -8,7 +8,7 @@ nixos:
   hostId: "def00000"
 
   # The flake to use for the installation.
-  flake: github:MAHDTech/nix-config#JONS
+  flake: github:MAHDTech/nix-config#TEMPLATE
 
   # The NixOS configuration partition on the uefi disk.
   config:

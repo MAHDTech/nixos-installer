@@ -804,6 +804,9 @@ func Run() {
 		if configData.NixOS.Config.Enabled {
 			fmt.Printf("TIP: When using the NixOS config partition, it's a good idea to copy your flake locally to %s\n", mountPointNixOSConfig)
 		}
+		fmt.Println("")
+		fmt.Println("REMINDER: Ensure the disk IDs are correctly set in the hardware-configuration.nix file!")
+		fmt.Println("")
 	}
 
 }
