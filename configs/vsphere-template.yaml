@@ -18,7 +18,7 @@ nixos:
 uefi:
   disk: /dev/sda
   label: ESP
-  size: 5GiB
+  size: 100%
 
 # Settings for the ZFS pool.
 zfs:
