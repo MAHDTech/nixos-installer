@@ -16,7 +16,7 @@ nixos:
 
 # Settings for the UEFI partition.
 uefi:
-  disk: /dev/sda
+  disk: /dev/disk/by-path/pci-0000:02:00.0-scsi-0:0:0:0
   label: ESP
   size: 100%
 
@@ -29,7 +29,7 @@ zfs:
     mirror: false
     stripe: false
   disks:
-    - /dev/sdb
+    - /dev/disk/by-path/pci-0000:02:00.0-scsi-0:0:1:0
 
 # Settings for the swap partition.
 swap:
