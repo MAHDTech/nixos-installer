@@ -70,10 +70,11 @@ jobs:
         run: |
           go test -v ./...
 
-      - id: go_fmt
-        name: Go Fmt
+      - id: go_staticcheck
+        name: Go Staticcheck
         run: |
-          test -z "$(gofmt -l .)"
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          staticcheck
 
       - id: go_vet
         name: Go Vet
