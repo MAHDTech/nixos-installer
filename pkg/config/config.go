@@ -1,3 +1,4 @@
+// Package config provides the configuration for the installer.
 package config
 
 import (
@@ -9,6 +10,7 @@ import (
 	utils "github.com/MAHDTech/nixos-installer/pkg/utils"
 )
 
+// Config is the top-level configuration for the installer.
 type Config struct {
 
 	// NixOS settings
@@ -85,7 +87,7 @@ func ReadConfig(configFile string) (Config, error) {
 // ValidateConfig validates the configuration file.
 func validateConfig(configData *Config) error {
 	// Make sure a flake was specified.
-	if configData.Flake == "" {
+	if configData.NixOS.Flake == "" {
 		return errors.New("flake not specified")
 	}
 
