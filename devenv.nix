@@ -6,12 +6,20 @@
     figlet
     git
     hello
+    go
+    go-tools
+    golangci-lint
   ];
 
   languages.go.enable = true;
 
   git-hooks = {
-    excludes = [ "vendor" ];
+    excludes = [
+      ".cache"
+      ".devenv"
+      ".direnv"
+      "vendor"
+    ];
     hooks = {
       actionlint.enable = true;
       beautysh.enable = true;
@@ -55,6 +63,4 @@
     echo "Running tests"
     git --version | grep --color=auto "${pkgs.git.version}"
   '';
-
-  pre-commit.hooks.shellcheck.enable = true;
 }

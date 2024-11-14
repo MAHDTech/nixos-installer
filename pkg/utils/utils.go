@@ -1,3 +1,4 @@
+// Package utils provides utilities for the installer.
 package utils
 
 import (
@@ -8,7 +9,7 @@ import (
 	validate "github.com/MAHDTech/nixos-installer/pkg/validate"
 )
 
-// Determines if a device is a valid block device.
+// IsValidBlockDevice function will return true if the device is a valid block device.
 func IsValidBlockDevice(device string) bool {
 	// Check if the device exists
 	_, err := os.Stat(device)
@@ -27,7 +28,7 @@ func IsValidBlockDevice(device string) bool {
 
 }
 
-// Executes a command and check for errors.
+// Execute function will execute a command and check for errors.
 func Execute(execute bool, cmdName string, args ...string) {
 	cmd := exec.Command(cmdName, args...)
 	cmd.Stdout = os.Stdout
@@ -41,7 +42,7 @@ func Execute(execute bool, cmdName string, args ...string) {
 	}
 }
 
-// Executes a command and ignores any errors.
+// ExecuteSilent function will execute a command and ignore any errors.
 func ExecuteSilent(execute bool, cmdName string, args ...string) {
 	cmd := exec.Command(cmdName, args...)
 	cmd.Stdout = os.Stdout
@@ -58,24 +59,24 @@ func ExecuteSilent(execute bool, cmdName string, args ...string) {
 	}
 }
 
-// Executes a command and captures stdout.
+// ExecuteStdOut function will execute a command and return the stdout.
 func ExecuteStdOut(execute bool, cmdName string, args ...string) string {
 	cmd := exec.Command(cmdName, args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
-	if execute {
+	if !execute {
 		output, err := cmd.Output()
 		validate.Error(err)
 		return string(output)
-	} else {
-		log.Printf("DRY RUN: Would run %s\n", cmd.String())
 	}
 
+	log.Printf("DRY RUN: Would run %s\n", cmd.String())
 	return ""
+
 }
 
-// Check if a file exists.
+// FileExists function will return true if the file exists.
 func FileExists(path string) bool {
 	_, err := os.Stat(path)
 	return !os.IsNotExist(err)

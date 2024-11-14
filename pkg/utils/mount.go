@@ -1,3 +1,5 @@
+// Package utils provides utilities for the installer.
+// This package provides utilities for working with mountpoints.
 package utils
 
 import (
@@ -18,6 +20,7 @@ type BlockDevices struct {
 	Blockdevices []BlockDevice `json:"blockdevices"`
 }
 
+// GetMountpoints function will return all mountpoints for a given device ID.
 func GetMountpoints(deviceID string, data []byte) ([]string, error) {
 
 	var blockdevices BlockDevices
@@ -65,6 +68,7 @@ func GetMountpoints(deviceID string, data []byte) ([]string, error) {
 
 }
 
+// UnmountAll function will unmount all given mountpoints.
 func UnmountAll(execute bool, mountpoints []string) error {
 
 	for _, mountpoint := range mountpoints {

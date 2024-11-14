@@ -30,7 +30,7 @@ const zfsDatasetLib = "var/lib"
 const zfsDatasetDocker = "var/lib/docker"
 
 // Run function is where the installer logic is executed.
-func Run() {
+func Run() { //nolint:gocyclo
 
 	// Determine the path to the configuration file.
 	configFile := flag.String(
@@ -774,8 +774,12 @@ func Run() {
 		nixOSHostID := fmt.Sprintf("  networking.hostId = \"%s\";\n", nixOSHostIDString)
 		nixOSConfigNew := regex.ReplaceAllString(string(nixOSConfigDefault), "\n{\n"+nixOSHostID+"\n")
 
-		// Write the new NixOS configuration.
-		err = os.WriteFile(nixOSConfigPath, []byte(nixOSConfigNew), os.ModePerm)
+		// Write the new NixOS configuration with 0600 permissions.
+		err = os.WriteFile(
+			nixOSConfigPath,
+			[]byte(nixOSConfigNew),
+			os.FileMode(0600),
+		)
 		validate.Error(err)
 	}
 

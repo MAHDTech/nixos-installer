@@ -85,7 +85,11 @@ jobs:
         name: Go Lint
         uses: golangci/golangci-lint-action@v3
         with:
-          version: v1.50
+          version: latest
+          args: >
+            --config=.linters/config/.golangci.yml
+            --timeout=30m
+            --issues-exit-code=1
 
       - id: go_sec
         name: Go Sec
