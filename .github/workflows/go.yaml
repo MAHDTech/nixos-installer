@@ -52,7 +52,13 @@ jobs:
     steps:
       - id: go_setup
         name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
+
+      - id: go_check
+        name: Go Check
+        run: |
+          go version
+          go env
 
       - id: checkout_repository
         name: Checkout repository
