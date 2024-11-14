@@ -82,6 +82,11 @@ jobs:
         name: Magic Nix cache
         uses: DeterminateSystems/magic-nix-cache-action@main
 
+      - id: direnv_install
+        name: Direnv install
+        run: |
+          nix profile install nixpkgs#nix-direnv
+
       - id: devenv_install
         name: Devenv install
         run: |
@@ -92,10 +97,10 @@ jobs:
         run: |
           devenv gc
 
-      - id: devenv_shell
-        name: Devenv shell
+      - id: direnv_load
+        name: Direnv load
         run: |
-          devenv shell
+          direnv allow
 
       - id: devenv_test
         name: Devenv test
