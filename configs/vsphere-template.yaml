@@ -25,7 +25,7 @@ zfs:
   pool:
     name: zpool
     compression: true
-    encryption: true
+    encryption: false
     mirror: false
     stripe: false
   disks:
