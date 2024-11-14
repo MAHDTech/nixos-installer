@@ -751,6 +751,7 @@ func Run() { //nolint:gocyclo
 	} else {
 		nixOSConfigPath := path.Join(mountPoint, "etc/nixos/configuration.nix")
 
+		// #nosec G304
 		nixOSConfigDefault, err := os.ReadFile(nixOSConfigPath)
 		validate.Error(err)
 

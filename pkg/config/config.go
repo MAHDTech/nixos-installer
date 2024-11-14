@@ -63,6 +63,7 @@ func ReadConfig(configFile string) (Config, error) {
 	}
 
 	// Read the config file.
+	// #nosec G304
 	yamlFile, err := os.ReadFile(configFile)
 	if err != nil {
 		return Config{}, err

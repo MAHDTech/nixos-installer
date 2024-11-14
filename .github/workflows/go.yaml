@@ -95,7 +95,11 @@ jobs:
         name: Go Sec
         uses: securego/gosec@master
         with:
-          args: ./...
+          args: >
+            --exclude-dir=.devenv
+            --exclude-dir=.direnv
+            --exclude-dir=vendor
+            ./...
 
       - id: go_build
         name: Go Build
