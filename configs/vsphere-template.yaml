@@ -1,22 +1,26 @@
 ---
 
-# Name: NUC
-# Description: Intel NUC x15 Laptop with Intel ARC A730M GPU.
+# Name: vsphere-template
+# Description: A template used for vSphere Virtual Machines.
 
 # Settings for NixOS
 nixos:
 
   # The host ID to use for the installation.
-  hostId: "def10001"
+  hostId: "def00000"
 
   # The flake to use for the installation.
-  flake: github:MAHDTech/nix-config#NUC
+  flake: github:MAHDTech/nix-config#JONS
+
+  # The NixOS configuration partition on the uefi disk.
+  config:
+    enabled: true
 
 # Settings for the UEFI partition.
 uefi:
-  disk: /dev/disk/by-id/usb-Samsung_Flash_Drive_FIT_0364621040007011-0:0
+  disk: /dev/sda
   label: ESP
-  size: 4GiB
+  size: 5GiB
 
 # Settings for the ZFS pool.
 zfs:
@@ -27,9 +31,8 @@ zfs:
     mirror: false
     stripe: false
   disks:
-    - /dev/disk/by-id/nvme-Corsair_MP600_PRO_NH_A5JVB427305AF2
+    - /dev/sdb
 
 # Settings for the swap partition.
 swap:
-  enabled: true
-  size: 69GiB
+  enabled: false

@@ -1,9 +1,16 @@
 ---
-# The host ID to use for the installation.
-hostId: "04074ddc"
 
-# The flake to use for the installation.
-flake: github:MAHDTech/nix-config#NUC
+# Name: NUC
+# Description: Intel NUC x15 Laptop with Intel ARC A730M GPU and ZFS stripe.
+
+# Settings for NixOS
+nixos:
+
+  # The host ID to use for the installation.
+  hostId: "def10001"
+
+  # The flake to use for the installation.
+  flake: github:MAHDTech/nix-config#NUC
 
 # Settings for the UEFI partition.
 uefi:

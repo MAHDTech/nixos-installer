@@ -10,11 +10,21 @@ import (
 )
 
 type Config struct {
-	// HostID is optional and will be generated if not specified.
-	HostID string `yaml:"hostId" default:""`
 
-	// Flake is optional.
-	Flake string `yaml:"flake" default:""`
+	// NixOS settings
+	NixOS struct {
+		// HostID is optional and will be generated if not specified.
+		HostID string `yaml:"hostId" default:""`
+
+		// Flake is optional.
+		Flake string `yaml:"flake" default:""`
+
+		// The NixOS configuration partition on the uefi disk.
+		// This is optional and defaults to disabled.
+		Config struct {
+			Enabled bool `yaml:"enabled" default:"false"`
+		}
+	} `yaml:"nixos" validate:"required"`
 
 	// UEFI is required.
 	UEFI struct {

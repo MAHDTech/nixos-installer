@@ -122,7 +122,7 @@ func Run() {
 		mountPointUEFI,
 	)
 
-	// Create mount point for 'nixos-config'
+	// Create mount point for 'nixos' configuration.
 	mountPointNixOSConfig := path.Join(mountPoint, "boot/nixos")
 	log.Printf("Creating mount point for 'nixos-config' at: %s\n", mountPointNixOSConfig)
 	utils.Execute(
@@ -279,23 +279,29 @@ func Run() {
 		"on",
 	)
 
-	// Create the NixOS config partition.
-	log.Printf("Creating NixOS config partition on %s.\n", configData.UEFI.Disk)
-	utils.Execute(
-		*execute,
-		"parted",
-		"--script",
-		"--fix",
-		"--align",
-		"optimal",
-		configData.UEFI.Disk,
-		"--",
-		"mkpart",
-		"nixos-config",
-		"xfs",
-		configData.UEFI.Size,
-		"100%",
-	);
+	// Create the NixOS configuration partition if it is enabled.
+	if configData.NixOS.Config.Enabled {
+
+		log.Printf("Creating NixOS config partition on %s.\n", configData.UEFI.Disk)
+		utils.Execute(
+			*execute,
+			"parted",
+			"--script",
+			"--fix",
+			"--align",
+			"optimal",
+			configData.UEFI.Disk,
+			"--",
+			"mkpart",
+			"nixos-config",
+			"xfs",
+			configData.UEFI.Size,
+			"100%",
+		)
+
+	} else {
+		log.Println("Skipping NixOS config partition creation as it is disabled.")
+	}
 
 	// Sleep a few seconds to allow the partition table to update.
 	if *execute {
@@ -314,15 +320,22 @@ func Run() {
 		partitionNameUEFI,
 	)
 
-	// Format the NixOS config partition.
-	partitionNameNixOSConfig := fmt.Sprintf("%s-part2", configData.UEFI.Disk)
-	log.Printf("Formatting NixOS config partition: %s\n", partitionNameNixOSConfig)
-	utils.Execute(
-		*execute,
-		"mkfs.xfs",
-		"-f",
-		partitionNameNixOSConfig,
-	);
+	// Format the NixOS config partition if it is enabled.
+	var partitionNameNixOSConfig string
+	if configData.NixOS.Config.Enabled {
+
+		partitionNameNixOSConfig = fmt.Sprintf("%s-part2", configData.UEFI.Disk)
+		log.Printf("Formatting NixOS config partition: %s\n", partitionNameNixOSConfig)
+		utils.Execute(
+			*execute,
+			"mkfs.xfs",
+			"-f",
+			partitionNameNixOSConfig,
+		)
+
+	} else {
+		log.Println("Skipping NixOS config partition formatting as it is disabled.")
+	}
 
 	/*
 		##################################################
@@ -611,18 +624,22 @@ func Run() {
 		mountPointUEFI,
 	)
 
-	// Mount the NixOS config partition.
-	log.Printf("Mounting %s to %s.\n", partitionNameNixOSConfig, mountPointNixOSConfig)
-	utils.Execute(
-		*execute,
-		"mount",
-		"-o",
-		"X-mount.mkdir",
-		"-t",
-		"xfs",
-		partitionNameNixOSConfig,
-		mountPointNixOSConfig,
-	);
+	// Mount the NixOS config partition if it is enabled.
+	if configData.NixOS.Config.Enabled {
+		log.Printf("Mounting %s to %s.\n", partitionNameNixOSConfig, mountPointNixOSConfig)
+		utils.Execute(
+			*execute,
+			"mount",
+			"-o",
+			"X-mount.mkdir",
+			"-t",
+			"xfs",
+			partitionNameNixOSConfig,
+			mountPointNixOSConfig,
+		)
+	} else {
+		log.Println("Skipping NixOS config partition mounting as it is disabled.")
+	}
 
 	// Mount the home dataset.
 	log.Printf("Mounting %s to %s.\n", zfsDataSetPathHome, mountPointHome)
@@ -729,9 +746,9 @@ func Run() {
 		// Replace the networking.hostId with the one from the config if provided.
 		// Otherwise it will be generated
 		var nixOSHostIdString string
-		if configData.HostID != "" {
+		if configData.NixOS.HostID != "" {
 			// Use the user provided host id.
-			nixOSHostIdString = configData.HostID
+			nixOSHostIdString = configData.NixOS.HostID
 		} else {
 			// Use the first 8 characters of the machine id.
 			nixOSHostIdString = utils.ExecuteStdOut(
@@ -762,18 +779,20 @@ func Run() {
 			mountPoint,
 			"--impure",
 			"--flake",
-			configData.Flake,
+			configData.NixOS.Flake,
 		)
 	} else {
 		fmt.Println("")
 		fmt.Println("You can now edit the NixOS configuration and install NixOS by running:")
 		fmt.Println("")
 		fmt.Println("export NIXPKGS_ALLOW_UNFREE=1")
-		fmt.Printf("sudo -E nixos-install --verbose --root %s --impure --flake %s\n", mountPoint, configData.Flake)
+		fmt.Printf("sudo -E nixos-install --verbose --root %s --impure --flake %s\n", mountPoint, configData.NixOS.Flake)
 		fmt.Println("")
 		fmt.Println("If needed, remember you can re-run the nixos-install command after making additional changes before rebooting.")
 		fmt.Println("")
-		fmt.Printf("Reminder: If you are using the nixos-config partition, copy your flake to %s", mountPointNixOSConfig)
+		if configData.NixOS.Config.Enabled {
+			fmt.Printf("TIP: When using the NixOS config partition, it's a good idea to copy your flake locally to %s\n", mountPointNixOSConfig)
+		}
 	}
 
 }

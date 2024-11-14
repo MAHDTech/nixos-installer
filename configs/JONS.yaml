@@ -1,9 +1,20 @@
 ---
-# The host ID to use for the installation.
-hostId: "04074ddc"
 
-# The flake to use for the installation.
-flake: github:MAHDTech/nix-config#JONS
+# Name: JONS
+# Description: AMD Ryzen Desktop PC with NVIDIA GPU.
+
+# Settings for NixOS
+nixos:
+
+  # The host ID to use for the installation.
+  hostId: "def10002"
+
+  # The flake to use for the installation.
+  flake: github:MAHDTech/nix-config#JONS
+
+  # The NixOS configuration partition on the uefi disk.
+  config:
+    enabled: true
 
 # Settings for the UEFI partition.
 uefi:
