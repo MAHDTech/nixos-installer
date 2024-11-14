@@ -1,11 +1,9 @@
 ---
-
 # Name: Example
 # Description: Example starting config.
 
 # Settings for NixOS
 nixos:
-
   # The host ID to use for the installation.
   # Leave blank to generate a random one.
   hostId: ""
@@ -26,7 +24,7 @@ uefi:
 # Settings for the ZFS pool.
 zfs:
   pool:
-    name: ZPOOL
+    name: zpool
     compression: true
     encryption: true
     mirror: false

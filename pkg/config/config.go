@@ -38,7 +38,7 @@ type Config struct {
 	// ZFS is required.
 	ZFS struct {
 		Pool struct {
-			Name        string `yaml:"name" validate:"required"`
+			Name        string `yaml:"name" default:"zpool"`
 			Compression bool   `yaml:"compression" default:"true"`
 			Encryption  bool   `yaml:"encryption" default:"false"`
 			Mirror      bool   `yaml:"mirror" default:"false"`

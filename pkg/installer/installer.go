@@ -1,3 +1,4 @@
+// Package installer contains the logic for installing NixOS.
 package installer
 
 import (
@@ -17,9 +18,6 @@ import (
 // Where nixos will be installed to.
 const mountPoint = "/mnt/nixos"
 
-// The name of the ZFS pool.
-const zfsPool = "zpool"
-
 // The names of the ZFS datasets.
 const zfsDatasetBoot = "boot"
 const zfsDatasetRoot = "root"
@@ -31,6 +29,7 @@ const zfsDatasetVar = "var"
 const zfsDatasetLib = "var/lib"
 const zfsDatasetDocker = "var/lib/docker"
 
+// Run function is where the installer logic is executed.
 func Run() {
 
 	// Determine the path to the configuration file.
@@ -245,7 +244,12 @@ func Run() {
 	)
 
 	// Create the UEFI partition.
-	log.Printf("Creating UEFI partition on %s with label %s and size %s.\n", configData.UEFI.Disk, configData.UEFI.Label, configData.UEFI.Size)
+	log.Printf(
+		"Creating UEFI partition on %s with label %s and size %s.\n",
+		configData.UEFI.Disk,
+		configData.UEFI.Label,
+		configData.UEFI.Size,
+	)
 	utils.Execute(
 		*execute,
 		"parted",
@@ -343,6 +347,9 @@ func Run() {
 		##################################################
 	*/
 
+	// Determine the name of the ZFS pool.
+	zfsPoolName := configData.ZFS.Pool.Name
+
 	// Destroy any existing ZFS pool using that name.
 	log.Println("Destroying any existing ZFS pool on the disks.")
 	utils.ExecuteSilent(
@@ -350,7 +357,7 @@ func Run() {
 		"zpool",
 		"destroy",
 		"-f",
-		zfsPool,
+		zfsPoolName,
 	)
 
 	for _, zfsDisk := range configData.ZFS.Disks {
@@ -438,7 +445,7 @@ func Run() {
 	zpoolArgs = append(zpoolArgs, "-R", mountPoint)
 
 	// Add the pool name to the zpool arguments.
-	zpoolArgs = append(zpoolArgs, zfsPool)
+	zpoolArgs = append(zpoolArgs, zfsPoolName)
 
 	// If there is more than one root disk, we need to mirror or stripe them.
 	if len(configData.ZFS.Disks) > 1 {
@@ -454,7 +461,7 @@ func Run() {
 	zpoolArgs = append(zpoolArgs, configData.ZFS.Disks...)
 
 	// Create the ZFS pool.
-	log.Printf("Creating ZFS pool %s.\n", zfsPool)
+	log.Printf("Creating ZFS pool %s.\n", zfsPoolName)
 	utils.Execute(
 		*execute,
 		"zpool",
@@ -470,7 +477,7 @@ func Run() {
 	log.Println("Creating ZFS datasets.")
 
 	// Create the root dataset.
-	zfsDatasetPathRoot := path.Join(zfsPool, zfsDatasetRoot)
+	zfsDatasetPathRoot := path.Join(zfsPoolName, zfsDatasetRoot)
 	log.Printf("Creating root dataset: %s\n", zfsDatasetPathRoot)
 	utils.Execute(
 		*execute,
@@ -482,7 +489,7 @@ func Run() {
 	)
 
 	// Create the boot dataset.
-	zfsDatasetPathBoot := path.Join(zfsPool, zfsDatasetBoot)
+	zfsDatasetPathBoot := path.Join(zfsPoolName, zfsDatasetBoot)
 	log.Printf("Creating boot dataset: %s\n", zfsDatasetPathBoot)
 	utils.Execute(
 		*execute,
@@ -494,7 +501,7 @@ func Run() {
 	)
 
 	// Create the home dataset.
-	zfsDataSetPathHome := path.Join(zfsPool, zfsDatasetHome)
+	zfsDataSetPathHome := path.Join(zfsPoolName, zfsDatasetHome)
 	log.Printf("Creating home dataset: %s\n", zfsDataSetPathHome)
 	utils.Execute(
 		*execute,
@@ -506,7 +513,7 @@ func Run() {
 	)
 
 	// Create the nix dataset.
-	zfsDataSetPathNix := path.Join(zfsPool, zfsDatasetNixStore)
+	zfsDataSetPathNix := path.Join(zfsPoolName, zfsDatasetNixStore)
 	log.Printf("Creating nix dataset: %s\n", zfsDataSetPathNix)
 	utils.Execute(
 		*execute,
@@ -518,7 +525,7 @@ func Run() {
 	)
 
 	// Create the swap dataset.
-	zfsDataSetPathSwap := path.Join(zfsPool, zfsDatasetSwap)
+	zfsDataSetPathSwap := path.Join(zfsPoolName, zfsDatasetSwap)
 	log.Printf("Creating swap dataset: %s\n", zfsDataSetPathSwap)
 	utils.Execute(
 		*execute,
@@ -530,7 +537,7 @@ func Run() {
 	)
 
 	// Create the tmp dataset.
-	zfsDataSetPathTmp := path.Join(zfsPool, zfsDatasetTmp)
+	zfsDataSetPathTmp := path.Join(zfsPoolName, zfsDatasetTmp)
 	log.Printf("Creating tmp dataset: %s\n", zfsDataSetPathTmp)
 	utils.Execute(
 		*execute,
@@ -542,7 +549,7 @@ func Run() {
 	)
 
 	// Create the var dataset.
-	zfsDataSetPathVar := path.Join(zfsPool, zfsDatasetVar)
+	zfsDataSetPathVar := path.Join(zfsPoolName, zfsDatasetVar)
 	log.Printf("Creating var dataset: %s\n", zfsDataSetPathVar)
 	utils.Execute(
 		*execute,
@@ -554,7 +561,7 @@ func Run() {
 	)
 
 	// Create the lib dataset.
-	zfsDataSetPathLib := path.Join(zfsPool, zfsDatasetLib)
+	zfsDataSetPathLib := path.Join(zfsPoolName, zfsDatasetLib)
 	log.Printf("Creating lib dataset: %s\n", zfsDataSetPathLib)
 	utils.Execute(
 		*execute,
@@ -566,7 +573,7 @@ func Run() {
 	)
 
 	// Create the docker dataset.
-	zfsDataSetPathDocker := path.Join(zfsPool, zfsDatasetDocker)
+	zfsDataSetPathDocker := path.Join(zfsPoolName, zfsDatasetDocker)
 	log.Printf("Creating docker dataset: %s\n", zfsDataSetPathDocker)
 	utils.Execute(
 		*execute,
@@ -745,13 +752,13 @@ func Run() {
 
 		// Replace the networking.hostId with the one from the config if provided.
 		// Otherwise it will be generated
-		var nixOSHostIdString string
+		var nixOSHostIDString string
 		if configData.NixOS.HostID != "" {
 			// Use the user provided host id.
-			nixOSHostIdString = configData.NixOS.HostID
+			nixOSHostIDString = configData.NixOS.HostID
 		} else {
 			// Use the first 8 characters of the machine id.
-			nixOSHostIdString = utils.ExecuteStdOut(
+			nixOSHostIDString = utils.ExecuteStdOut(
 				*execute,
 				"head",
 				"-c",
@@ -760,8 +767,8 @@ func Run() {
 			)
 		}
 		regex := regexp.MustCompile("\n{\n")
-		nixOSHostId := fmt.Sprintf("  networking.hostId = \"%s\";\n", nixOSHostIdString)
-		nixOSConfigNew := regex.ReplaceAllString(string(nixOSConfigDefault), "\n{\n"+nixOSHostId+"\n")
+		nixOSHostID := fmt.Sprintf("  networking.hostId = \"%s\";\n", nixOSHostIDString)
+		nixOSConfigNew := regex.ReplaceAllString(string(nixOSConfigDefault), "\n{\n"+nixOSHostID+"\n")
 
 		// Write the new NixOS configuration.
 		err = os.WriteFile(nixOSConfigPath, []byte(nixOSConfigNew), os.ModePerm)

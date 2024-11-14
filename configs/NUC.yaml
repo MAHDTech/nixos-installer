@@ -1,11 +1,9 @@
 ---
-
 # Name: NUC
 # Description: Intel NUC x15 Laptop with Intel ARC A730M GPU.
 
 # Settings for NixOS
 nixos:
-
   # The host ID to use for the installation.
   hostId: "def10001"
 
@@ -21,7 +19,7 @@ uefi:
 # Settings for the ZFS pool.
 zfs:
   pool:
-    name: ZPOOL
+    name: zpool
     compression: true
     encryption: true
     mirror: false
