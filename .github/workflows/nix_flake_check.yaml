@@ -1,0 +1,61 @@
+---
+name: Nix Flake check
+
+# prettier-ignore
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - trunk
+
+  pull_request:
+    branches:
+      - "trunk"
+
+permissions:
+  contents: read
+
+env:
+  NIXPKGS_ALLOW_UNFREE: 1
+
+jobs:
+  nix:
+    runs-on: ubuntu-latest
+
+    steps:
+      - id: checkout
+        name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: recursive
+
+      - id: install_nix
+        name: "Install Nix ❄️"
+        uses: cachix/install-nix-action@v30
+
+      - id: cachix
+        name: "Enable Cachix ❄️"
+        uses: cachix/cachix-action@v15
+        with:
+          name: ${{ vars.CACHIX_CACHE_NAME }}
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          useDaemon: true
+          skipPush: false
+
+      - id: cache
+        name: Magic Nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Nix Flake check
+        run: >-
+          nix flake check
+          --accept-flake-config
+          --all-systems
+          --impure
+          --keep-going
+          --no-build
+          --refresh
+          --verbose
+
+      - name: Statix check
+        run: nix run nixpkgs#statix -- check

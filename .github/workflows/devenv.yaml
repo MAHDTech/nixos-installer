@@ -92,6 +92,11 @@ jobs:
         run: |
           devenv gc
 
+      - id: devenv_shell
+        name: Devenv shell
+        run: |
+          devenv shell
+
       - id: devenv_test
         name: Devenv test
         run: |

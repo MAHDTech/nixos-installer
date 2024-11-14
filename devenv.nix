@@ -21,7 +21,6 @@
       check-yaml.enable = true;
       commitizen.enable = true;
       convco.enable = true;
-      deadnix.enable = true;
       gofmt.enable = true;
       golangci-lint.enable = true;
       golines.enable = true;

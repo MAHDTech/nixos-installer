@@ -72,9 +72,9 @@ jobs:
 
       - id: go_staticcheck
         name: Go Staticcheck
-        run: |
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          staticcheck
+        uses: dominikh/staticcheck-action@v1
+        with:
+          version: "latest"
 
       - id: go_vet
         name: Go Vet
