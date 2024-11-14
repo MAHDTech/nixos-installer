@@ -524,17 +524,21 @@ func Run() {
 		zfsDataSetPathNix,
 	)
 
-	// Create the swap dataset.
-	zfsDataSetPathSwap := path.Join(zfsPoolName, zfsDatasetSwap)
-	log.Printf("Creating swap dataset: %s\n", zfsDataSetPathSwap)
-	utils.Execute(
-		*execute,
-		"zfs",
-		"create",
-		"-V",
-		configData.Swap.Size,
-		zfsDataSetPathSwap,
-	)
+	// Create the swap dataset if it is enabled.
+	if configData.Swap.Enabled {
+		zfsDataSetPathSwap := path.Join(zfsPoolName, zfsDatasetSwap)
+		log.Printf("Creating swap dataset: %s\n", zfsDataSetPathSwap)
+		utils.Execute(
+			*execute,
+			"zfs",
+			"create",
+			"-V",
+			configData.Swap.Size,
+			zfsDataSetPathSwap,
+		)
+	} else {
+		log.Println("Skipping swap dataset creation as it is disabled.")
+	}
 
 	// Create the tmp dataset.
 	zfsDataSetPathTmp := path.Join(zfsPoolName, zfsDatasetTmp)
