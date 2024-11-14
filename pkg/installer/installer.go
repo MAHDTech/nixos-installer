@@ -351,7 +351,7 @@ func Run() {
 	zfsPoolName := configData.ZFS.Pool.Name
 
 	// Destroy any existing ZFS pool using that name.
-	log.Println("Destroying any existing ZFS pool on the disks.")
+	log.Printf("Destroying existing ZFS pool %s.\n", zfsPoolName)
 	utils.ExecuteSilent(
 		*execute,
 		"zpool",
