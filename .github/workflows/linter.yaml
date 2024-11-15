@@ -1,0 +1,126 @@
+---
+##################################################
+# Name: linter.yaml
+# Description: Workflow for the GitHub Super Linter
+#
+# NOTES:
+#     - Reference: https://github.com/github/super-linter
+#
+##################################################
+
+name: Linter
+
+# prettier-ignore
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches-ignore:
+      - trunk
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lint:
+    name: GitHub Super Linter
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 30
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+      - id: checkout_repository
+        name: Checkout repository with all history and tags
+        uses: actions/checkout@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          fetch-depth: 0
+          submodules: false
+          clean: true
+          persist-credentials: true
+
+      - id: run_linter
+        name: Run GitHub Super Linter
+        uses: github/super-linter@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISABLE_ERRORS: false
+          DEFAULT_BRANCH: "trunk"
+          ACTIONS_RUNNER_DEBUG: false
+          ANSIBLE_DIRECTORY: "/ansible"
+          LOG_LEVEL: "verbose"
+          MULTI_STATUS: "true"
+          # yamllint disable-line rule:line-length
+          # Rules:
+          # - If no validate options are passed, ALL are true
+          # - If one validate option is passed (true), ALL the others are false
+          # - If one validate option is passed (false), ALL the others are true
+          VALIDATE_ALL_CODEBASE: true
+          # VALIDATE_ANSIBLE: true
+          # VALIDATE_ARM: true
+          # VALIDATE_BASH: true
+          VALIDATE_BASH_EXEC: true
+          # VALIDATE_CLOJURE: true
+          # VALIDATE_CLOUDFORMATION: true
+          # VALIDATE_COFFEE: true
+          # VALIDATE_CSS: true
+          # VALIDATE_CSHARP: true
+          # VALIDATE_CSS: true
+          # VALIDATE_DART: true
+          # VALIDATE_DOCKERFILE: true
+          # VALIDATE_DOCKERFILE_HADOLINT: true
+          # VALIDATE_EDITORCONFIG: true
+          VALIDATE_ENV: true
+          # VALIDATE_GHERKIN: true
+          VALIDATE_GO: true
+          # VALIDATE_GROOVY: true
+          # VALIDATE_HTML: true
+          # VALIDATE_JAVA: true
+          # VALIDATE_JAVASCRIPT_ES: true
+          # VALIDATE_JAVASCRIPT_STANDARD: true
+          # VALIDATE_JSCPD: true
+          VALIDATE_JSON: true
+          # VALIDATE_JSX: true
+          # VALIDATE_KOTLIN: true
+          # VALIDATE_KUBERNETES_KUBEVAL: true
+          # VALIDATE_LATEX: true
+          # VALIDATE_LUA: true
+          VALIDATE_MARKDOWN: true
+          # VALIDATE_OPENAPI: true
+          # VALIDATE_PERL: true
+          # VALIDATE_PHP: true
+          # VALIDATE_PHP_BUILTIN: true
+          # VALIDATE_PHP_PHPCS: true
+          # VALIDATE_PHP_PSALM: true
+          # VALIDATE_PROTOBUF: true
+          # VALIDATE_PYTHON: true
+          # VALIDATE_PYTHON_BLACK: true
+          # VALIDATE_PYTHON_FLAKE8: true
+          # VALIDATE_PYTHON_ISORT: true
+          # VALIDATE_PYTHON_PYLINT: true
+          # VALIDATE_POWERSHELL: true
+          # VALIDATE_R: true
+          # VALIDATE_RAKU: true
+          # VALIDATE_RUBY: true
+          # VALIDATE_SHELL_SHFMT: true
+          # VALIDATE_SNAKEMAKE_LINT: true
+          # VALIDATE_SNAKEMATE_SNAKEFMT: true
+          # VALIDATE_STATES: true
+          # VALIDATE_SQL: true
+          # VALIDATE_TEKTON: true
+          # VALIDATE_TERRAFORM: true
+          # VALIDATE_TERRAFORM_TERRASCAN: true
+          # VALIDATE_TERRAGRUNT: true
+          # VALIDATE_TSX: true
+          # VALIDATE_TYPESCRIPT_ES: true
+          # VALIDATE_TYPESCRIPT_STANDARD: true
+          # VALIDATE_XML: true
+          VALIDATE_YAML: true
