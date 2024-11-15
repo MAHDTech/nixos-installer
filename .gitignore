@@ -21,6 +21,9 @@
 go.work
 go.work.sum
 
+# Go list file
+go.list
+
 # env file
 .env
 # Devenv
