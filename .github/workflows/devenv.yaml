@@ -82,28 +82,31 @@ jobs:
         name: Magic Nix cache
         uses: DeterminateSystems/magic-nix-cache-action@main
 
-      - id: direnv_install
-        name: Direnv install
-        run: |
-          #nix profile install nixpkgs#nix-direnv
-          sudo apt update --yes
-          sudo apt install --yes direnv
-          eval "$(direnv hook bash)"
-
       - id: devenv_install
         name: Devenv install
         run: |
           nix profile install nixpkgs#devenv
+
+      - id: devenv_info
+        name: Devenv info
+        run: |
+          devenv info
 
       - id: devenv_gc
         name: Devenv gc
         run: |
           devenv gc
 
-      - id: direnv_load
-        name: Direnv load
+      - id: nix_store
+        name: Nix store
         run: |
-          direnv allow
+          nix store --version
+
+      - id: devenv_shell
+        name: Devenv shell
+        run: |
+          devenv shell
+          exit 0
 
       - id: devenv_test
         name: Devenv test

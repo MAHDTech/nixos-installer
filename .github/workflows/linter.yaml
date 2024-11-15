@@ -45,7 +45,7 @@ jobs:
         name: Checkout repository with all history and tags
         uses: actions/checkout@v4
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.SUPER_LINTER_TOKEN }}
         with:
           fetch-depth: 0
           submodules: false
@@ -56,7 +56,7 @@ jobs:
         name: Run GitHub Super Linter
         uses: super-linter/super-linter@main
         env:
-          DISABLE_ERRORS: false
+          GITHUB_TOKEN: ${{ secrets.SUPER_LINTER_TOKEN }}
           ACTIONS_RUNNER_DEBUG: false
           LOG_LEVEL: "verbose"
           MULTI_STATUS: "true"
