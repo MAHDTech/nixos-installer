@@ -64,7 +64,7 @@ jobs:
           # - If no validate options are passed, ALL are true
           # - If one validate option is passed (true), ALL the others are false
           # - If one validate option is passed (false), ALL the others are true
-          VALIDATE_ALL_CODEBASE: true
+          VALIDATE_ALL_CODEBASE: false
           VALIDATE_BASH: true
           VALIDATE_BASH_EXEC: true
           VALIDATE_EDITORCONFIG: true

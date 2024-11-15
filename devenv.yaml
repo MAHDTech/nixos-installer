@@ -13,5 +13,6 @@ imports: []
 clean:
   enabled: true
   keep:
+    - HOME
     - EDITOR
     - GITHUB_TOKEN

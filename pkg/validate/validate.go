@@ -1,3 +1,4 @@
+// Package validate provides functions to validate errors.
 package validate
 
 import (

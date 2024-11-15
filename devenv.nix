@@ -5,15 +5,17 @@
   packages = with pkgs; [
     figlet
     git
-    hello
     go
     go-tools
     golangci-lint
+    hello
     nix
   ];
 
   languages.go.enable = true;
   languages.nix.enable = true;
+
+  difftastic.enable = true;
 
   git-hooks = {
     excludes = [
