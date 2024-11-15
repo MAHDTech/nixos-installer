@@ -1,0 +1,106 @@
+---
+name: Go
+
+# prettier-ignore
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - trunk
+
+  pull_request:
+    branches:
+      - "trunk"
+    paths:
+      - "*.go"
+      - go.mod
+      - go.sum
+
+permissions:
+  contents: read
+  packages: read
+  pull-requests: write
+  statuses: read
+
+env:
+  PROJECT: ${{ github.repository }}
+
+  BRANCH_NAME_CURRENT: ${{ github.head_ref || github.ref_name }}
+  BRANCH_NAME_DEFAULT: ${{ github.event.repository.default_branch }}
+
+  # prettier-ignore
+  GO111MODULE: on  # yamllint disable-line rule:truthy
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ##################################################
+  # Test the Go code
+  ##################################################
+
+  test:
+    name: Go Test
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 30
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+      - id: go_setup
+        name: Set up Go
+        uses: actions/setup-go@v5
+
+      - id: go_check
+        name: Go Check
+        run: |
+          go version
+          go env
+
+      - id: checkout_repository
+        name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: recursive
+
+      - id: go_mod_download
+        name: Get dependencies
+        run: go mod download
+
+      - id: go_test
+        name: Go Test
+        run: |
+          go test -v ./...
+
+      - id: go_staticcheck
+        name: Go Staticcheck
+        uses: dominikh/staticcheck-action@v1
+        with:
+          version: "latest"
+
+      - id: go_vet
+        name: Go Vet
+        run: |
+          go vet ./...
+
+      - id: go_lint
+        name: Go Lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          args: >
+            --config=.linters/config/.golangci.yml
+            --timeout=30m
+            --issues-exit-code=1
+
+      - id: go_build
+        name: Go Build
+        run: |
+          go build -v ./...

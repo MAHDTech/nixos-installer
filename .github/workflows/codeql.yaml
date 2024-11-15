@@ -1,0 +1,51 @@
+---
+name: CodeQL
+
+# prettier-ignore
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - "trunk"
+  pull_request:
+    branches:
+      - "trunk"
+  schedule:
+    - cron: "00 0 * * 0"
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+
+    # yamllint disable-line rule:line-length
+    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: go
+            build-mode: autobuild
+
+    steps:
+      - id: checkout
+        name: Checkout repository
+        uses: actions/checkout@v4
+
+      - id: codeql_init
+        name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - id: codeql_analyze
+        name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{matrix.language}}"

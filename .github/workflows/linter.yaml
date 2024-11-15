@@ -1,0 +1,75 @@
+---
+##################################################
+# Name: linter.yaml
+# Description: Workflow for the GitHub Super Linter
+#
+# NOTES:
+#     - Reference: https://github.com/github/super-linter
+#
+##################################################
+
+name: Linter
+
+# prettier-ignore
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches-ignore:
+      - trunk
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lint:
+    name: GitHub Super Linter
+
+    runs-on: ${{ matrix.os }}
+
+    permissions:
+      contents: read
+      packages: read
+      statuses: write
+
+    timeout-minutes: 30
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+      - id: checkout_repository
+        name: Checkout repository with all history and tags
+        uses: actions/checkout@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.SUPER_LINTER_TOKEN }}
+        with:
+          fetch-depth: 0
+          submodules: false
+          clean: true
+          persist-credentials: true
+
+      - id: run_linter
+        name: Run GitHub Super Linter
+        uses: super-linter/super-linter@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.SUPER_LINTER_TOKEN }}
+          ACTIONS_RUNNER_DEBUG: false
+          LOG_LEVEL: "verbose"
+          MULTI_STATUS: "true"
+          # Rules:
+          # - If no validate options are passed, ALL are true
+          # - If one validate option is passed (true), ALL the others are false
+          # - If one validate option is passed (false), ALL the others are true
+          VALIDATE_ALL_CODEBASE: false
+          VALIDATE_BASH: true
+          VALIDATE_BASH_EXEC: true
+          VALIDATE_EDITORCONFIG: true
+          VALIDATE_ENV: true
+          VALIDATE_GO: true
+          VALIDATE_JSON: true
+          VALIDATE_MARKDOWN: true
+          VALIDATE_YAML: true

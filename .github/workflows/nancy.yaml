@@ -1,0 +1,53 @@
+---
+##################################################
+# Name: nancy.yaml
+# Description: SonarType Nancy dependency scanner for Go
+##################################################
+
+name: Nancy
+
+# prettier-ignore
+on:  # yamllint disable-line rule:truthy
+  push:
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+
+  schedule:
+    - cron: "0 0 * * 0"
+
+jobs:
+  nancy:
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+      - id: checkout_repository
+        name: Checkout repository
+        uses: actions/checkout@v4
+
+      - id: test_go_sum
+        name: Test for go.sum
+        shell: bash
+        run: |
+          if [ -f "go.sum" ];
+          then
+            echo "run_nancy=TRUE" >> "$GITHUB_OUTPUT"
+            go list -json -mod=mod -m all > go.list
+          else
+            echo "No go.sum file present, Nancy will not be run."
+          fi
+
+      - id: run_nancy
+        name: Run Nancy
+        if: ${{ steps.test_go_sum.outputs.run_nancy }}
+        uses: sonatype-nexus-community/nancy-github-action@main
+        with:
+          nancyCommand: sleuth --loud

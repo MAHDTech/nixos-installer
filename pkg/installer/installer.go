@@ -1,3 +1,4 @@
+// Package installer contains the logic for installing NixOS.
 package installer
 
 import (
@@ -17,9 +18,6 @@ import (
 // Where nixos will be installed to.
 const mountPoint = "/mnt/nixos"
 
-// The name of the ZFS pool.
-const zfsPool = "zpool"
-
 // The names of the ZFS datasets.
 const zfsDatasetBoot = "boot"
 const zfsDatasetRoot = "root"
@@ -31,7 +29,8 @@ const zfsDatasetVar = "var"
 const zfsDatasetLib = "var/lib"
 const zfsDatasetDocker = "var/lib/docker"
 
-func Run() {
+// Run function is where the installer logic is executed.
+func Run() { //nolint:gocyclo
 
 	// Determine the path to the configuration file.
 	configFile := flag.String(
@@ -122,7 +121,7 @@ func Run() {
 		mountPointUEFI,
 	)
 
-	// Create mount point for 'nixos-config'
+	// Create mount point for 'nixos' configuration.
 	mountPointNixOSConfig := path.Join(mountPoint, "boot/nixos")
 	log.Printf("Creating mount point for 'nixos-config' at: %s\n", mountPointNixOSConfig)
 	utils.Execute(
@@ -245,7 +244,12 @@ func Run() {
 	)
 
 	// Create the UEFI partition.
-	log.Printf("Creating UEFI partition on %s with label %s and size %s.\n", configData.UEFI.Disk, configData.UEFI.Label, configData.UEFI.Size)
+	log.Printf(
+		"Creating UEFI partition on %s with label %s and size %s.\n",
+		configData.UEFI.Disk,
+		configData.UEFI.Label,
+		configData.UEFI.Size,
+	)
 	utils.Execute(
 		*execute,
 		"parted",
@@ -279,23 +283,29 @@ func Run() {
 		"on",
 	)
 
-	// Create the NixOS config partition.
-	log.Printf("Creating NixOS config partition on %s.\n", configData.UEFI.Disk)
-	utils.Execute(
-		*execute,
-		"parted",
-		"--script",
-		"--fix",
-		"--align",
-		"optimal",
-		configData.UEFI.Disk,
-		"--",
-		"mkpart",
-		"nixos-config",
-		"xfs",
-		configData.UEFI.Size,
-		"100%",
-	);
+	// Create the NixOS configuration partition if it is enabled.
+	if configData.NixOS.Config.Enabled {
+
+		log.Printf("Creating NixOS config partition on %s.\n", configData.UEFI.Disk)
+		utils.Execute(
+			*execute,
+			"parted",
+			"--script",
+			"--fix",
+			"--align",
+			"optimal",
+			configData.UEFI.Disk,
+			"--",
+			"mkpart",
+			"nixos-config",
+			"xfs",
+			configData.UEFI.Size,
+			"100%",
+		)
+
+	} else {
+		log.Println("Skipping NixOS config partition creation as it is disabled.")
+	}
 
 	// Sleep a few seconds to allow the partition table to update.
 	if *execute {
@@ -314,15 +324,22 @@ func Run() {
 		partitionNameUEFI,
 	)
 
-	// Format the NixOS config partition.
-	partitionNameNixOSConfig := fmt.Sprintf("%s-part2", configData.UEFI.Disk)
-	log.Printf("Formatting NixOS config partition: %s\n", partitionNameNixOSConfig)
-	utils.Execute(
-		*execute,
-		"mkfs.xfs",
-		"-f",
-		partitionNameNixOSConfig,
-	);
+	// Format the NixOS config partition if it is enabled.
+	var partitionNameNixOSConfig string
+	if configData.NixOS.Config.Enabled {
+
+		partitionNameNixOSConfig = fmt.Sprintf("%s-part2", configData.UEFI.Disk)
+		log.Printf("Formatting NixOS config partition: %s\n", partitionNameNixOSConfig)
+		utils.Execute(
+			*execute,
+			"mkfs.xfs",
+			"-f",
+			partitionNameNixOSConfig,
+		)
+
+	} else {
+		log.Println("Skipping NixOS config partition formatting as it is disabled.")
+	}
 
 	/*
 		##################################################
@@ -330,14 +347,17 @@ func Run() {
 		##################################################
 	*/
 
+	// Determine the name of the ZFS pool.
+	zfsPoolName := configData.ZFS.Pool.Name
+
 	// Destroy any existing ZFS pool using that name.
-	log.Println("Destroying any existing ZFS pool on the disks.")
+	log.Printf("Destroying existing ZFS pool %s.\n", zfsPoolName)
 	utils.ExecuteSilent(
 		*execute,
 		"zpool",
 		"destroy",
 		"-f",
-		zfsPool,
+		zfsPoolName,
 	)
 
 	for _, zfsDisk := range configData.ZFS.Disks {
@@ -425,7 +445,7 @@ func Run() {
 	zpoolArgs = append(zpoolArgs, "-R", mountPoint)
 
 	// Add the pool name to the zpool arguments.
-	zpoolArgs = append(zpoolArgs, zfsPool)
+	zpoolArgs = append(zpoolArgs, zfsPoolName)
 
 	// If there is more than one root disk, we need to mirror or stripe them.
 	if len(configData.ZFS.Disks) > 1 {
@@ -441,7 +461,7 @@ func Run() {
 	zpoolArgs = append(zpoolArgs, configData.ZFS.Disks...)
 
 	// Create the ZFS pool.
-	log.Printf("Creating ZFS pool %s.\n", zfsPool)
+	log.Printf("Creating ZFS pool %s.\n", zfsPoolName)
 	utils.Execute(
 		*execute,
 		"zpool",
@@ -457,7 +477,7 @@ func Run() {
 	log.Println("Creating ZFS datasets.")
 
 	// Create the root dataset.
-	zfsDatasetPathRoot := path.Join(zfsPool, zfsDatasetRoot)
+	zfsDatasetPathRoot := path.Join(zfsPoolName, zfsDatasetRoot)
 	log.Printf("Creating root dataset: %s\n", zfsDatasetPathRoot)
 	utils.Execute(
 		*execute,
@@ -469,7 +489,7 @@ func Run() {
 	)
 
 	// Create the boot dataset.
-	zfsDatasetPathBoot := path.Join(zfsPool, zfsDatasetBoot)
+	zfsDatasetPathBoot := path.Join(zfsPoolName, zfsDatasetBoot)
 	log.Printf("Creating boot dataset: %s\n", zfsDatasetPathBoot)
 	utils.Execute(
 		*execute,
@@ -481,7 +501,7 @@ func Run() {
 	)
 
 	// Create the home dataset.
-	zfsDataSetPathHome := path.Join(zfsPool, zfsDatasetHome)
+	zfsDataSetPathHome := path.Join(zfsPoolName, zfsDatasetHome)
 	log.Printf("Creating home dataset: %s\n", zfsDataSetPathHome)
 	utils.Execute(
 		*execute,
@@ -493,7 +513,7 @@ func Run() {
 	)
 
 	// Create the nix dataset.
-	zfsDataSetPathNix := path.Join(zfsPool, zfsDatasetNixStore)
+	zfsDataSetPathNix := path.Join(zfsPoolName, zfsDatasetNixStore)
 	log.Printf("Creating nix dataset: %s\n", zfsDataSetPathNix)
 	utils.Execute(
 		*execute,
@@ -504,20 +524,24 @@ func Run() {
 		zfsDataSetPathNix,
 	)
 
-	// Create the swap dataset.
-	zfsDataSetPathSwap := path.Join(zfsPool, zfsDatasetSwap)
-	log.Printf("Creating swap dataset: %s\n", zfsDataSetPathSwap)
-	utils.Execute(
-		*execute,
-		"zfs",
-		"create",
-		"-V",
-		configData.Swap.Size,
-		zfsDataSetPathSwap,
-	)
+	// Create the swap dataset if it is enabled.
+	if configData.Swap.Enabled {
+		zfsDataSetPathSwap := path.Join(zfsPoolName, zfsDatasetSwap)
+		log.Printf("Creating swap dataset: %s\n", zfsDataSetPathSwap)
+		utils.Execute(
+			*execute,
+			"zfs",
+			"create",
+			"-V",
+			configData.Swap.Size,
+			zfsDataSetPathSwap,
+		)
+	} else {
+		log.Println("Skipping swap dataset creation as it is disabled.")
+	}
 
 	// Create the tmp dataset.
-	zfsDataSetPathTmp := path.Join(zfsPool, zfsDatasetTmp)
+	zfsDataSetPathTmp := path.Join(zfsPoolName, zfsDatasetTmp)
 	log.Printf("Creating tmp dataset: %s\n", zfsDataSetPathTmp)
 	utils.Execute(
 		*execute,
@@ -529,7 +553,7 @@ func Run() {
 	)
 
 	// Create the var dataset.
-	zfsDataSetPathVar := path.Join(zfsPool, zfsDatasetVar)
+	zfsDataSetPathVar := path.Join(zfsPoolName, zfsDatasetVar)
 	log.Printf("Creating var dataset: %s\n", zfsDataSetPathVar)
 	utils.Execute(
 		*execute,
@@ -541,7 +565,7 @@ func Run() {
 	)
 
 	// Create the lib dataset.
-	zfsDataSetPathLib := path.Join(zfsPool, zfsDatasetLib)
+	zfsDataSetPathLib := path.Join(zfsPoolName, zfsDatasetLib)
 	log.Printf("Creating lib dataset: %s\n", zfsDataSetPathLib)
 	utils.Execute(
 		*execute,
@@ -553,7 +577,7 @@ func Run() {
 	)
 
 	// Create the docker dataset.
-	zfsDataSetPathDocker := path.Join(zfsPool, zfsDatasetDocker)
+	zfsDataSetPathDocker := path.Join(zfsPoolName, zfsDatasetDocker)
 	log.Printf("Creating docker dataset: %s\n", zfsDataSetPathDocker)
 	utils.Execute(
 		*execute,
@@ -611,18 +635,22 @@ func Run() {
 		mountPointUEFI,
 	)
 
-	// Mount the NixOS config partition.
-	log.Printf("Mounting %s to %s.\n", partitionNameNixOSConfig, mountPointNixOSConfig)
-	utils.Execute(
-		*execute,
-		"mount",
-		"-o",
-		"X-mount.mkdir",
-		"-t",
-		"xfs",
-		partitionNameNixOSConfig,
-		mountPointNixOSConfig,
-	);
+	// Mount the NixOS config partition if it is enabled.
+	if configData.NixOS.Config.Enabled {
+		log.Printf("Mounting %s to %s.\n", partitionNameNixOSConfig, mountPointNixOSConfig)
+		utils.Execute(
+			*execute,
+			"mount",
+			"-o",
+			"X-mount.mkdir",
+			"-t",
+			"xfs",
+			partitionNameNixOSConfig,
+			mountPointNixOSConfig,
+		)
+	} else {
+		log.Println("Skipping NixOS config partition mounting as it is disabled.")
+	}
 
 	// Mount the home dataset.
 	log.Printf("Mounting %s to %s.\n", zfsDataSetPathHome, mountPointHome)
@@ -723,18 +751,19 @@ func Run() {
 	} else {
 		nixOSConfigPath := path.Join(mountPoint, "etc/nixos/configuration.nix")
 
+		// #nosec G304
 		nixOSConfigDefault, err := os.ReadFile(nixOSConfigPath)
 		validate.Error(err)
 
 		// Replace the networking.hostId with the one from the config if provided.
 		// Otherwise it will be generated
-		var nixOSHostIdString string
-		if configData.HostID != "" {
+		var nixOSHostIDString string
+		if configData.NixOS.HostID != "" {
 			// Use the user provided host id.
-			nixOSHostIdString = configData.HostID
+			nixOSHostIDString = configData.NixOS.HostID
 		} else {
 			// Use the first 8 characters of the machine id.
-			nixOSHostIdString = utils.ExecuteStdOut(
+			nixOSHostIDString = utils.ExecuteStdOut(
 				*execute,
 				"head",
 				"-c",
@@ -743,11 +772,15 @@ func Run() {
 			)
 		}
 		regex := regexp.MustCompile("\n{\n")
-		nixOSHostId := fmt.Sprintf("  networking.hostId = \"%s\";\n", nixOSHostIdString)
-		nixOSConfigNew := regex.ReplaceAllString(string(nixOSConfigDefault), "\n{\n"+nixOSHostId+"\n")
+		nixOSHostID := fmt.Sprintf("  networking.hostId = \"%s\";\n", nixOSHostIDString)
+		nixOSConfigNew := regex.ReplaceAllString(string(nixOSConfigDefault), "\n{\n"+nixOSHostID+"\n")
 
-		// Write the new NixOS configuration.
-		err = os.WriteFile(nixOSConfigPath, []byte(nixOSConfigNew), os.ModePerm)
+		// Write the new NixOS configuration with 0600 permissions.
+		err = os.WriteFile(
+			nixOSConfigPath,
+			[]byte(nixOSConfigNew),
+			os.FileMode(0600),
+		)
 		validate.Error(err)
 	}
 
@@ -762,18 +795,23 @@ func Run() {
 			mountPoint,
 			"--impure",
 			"--flake",
-			configData.Flake,
+			configData.NixOS.Flake,
 		)
 	} else {
 		fmt.Println("")
 		fmt.Println("You can now edit the NixOS configuration and install NixOS by running:")
 		fmt.Println("")
 		fmt.Println("export NIXPKGS_ALLOW_UNFREE=1")
-		fmt.Printf("sudo -E nixos-install --verbose --root %s --impure --flake %s\n", mountPoint, configData.Flake)
+		fmt.Printf("sudo -E nixos-install --verbose --root %s --impure --flake %s\n", mountPoint, configData.NixOS.Flake)
 		fmt.Println("")
 		fmt.Println("If needed, remember you can re-run the nixos-install command after making additional changes before rebooting.")
 		fmt.Println("")
-		fmt.Printf("Reminder: If you are using the nixos-config partition, copy your flake to %s", mountPointNixOSConfig)
+		if configData.NixOS.Config.Enabled {
+			fmt.Printf("TIP: When using the NixOS config partition, it's a good idea to copy your flake locally to %s\n", mountPointNixOSConfig)
+		}
+		fmt.Println("")
+		fmt.Println("REMINDER: Ensure the disk IDs are correctly set in the hardware-configuration.nix file!")
+		fmt.Println("")
 	}
 
 }

@@ -1,18 +1,23 @@
 ---
-# Name: NUC
-# Description: Intel NUC x15 Laptop with Intel ARC A730M GPU.
+# Name: Example
+# Description: Example starting config.
 
 # Settings for NixOS
 nixos:
   # The host ID to use for the installation.
-  hostId: "def10001"
+  # Leave blank to generate a random one.
+  hostId: ""
 
   # The flake to use for the installation.
-  flake: github:MAHDTech/nix-config#NUC
+  flake: github:MAHDTech/nix-config#TEMPLATE
+
+  # The NixOS configuration partition on the uefi disk.
+  config:
+    enabled: false
 
 # Settings for the UEFI partition.
 uefi:
-  disk: /dev/disk/by-id/usb-Samsung_Flash_Drive_FIT_0364621040007011-0:0
+  disk: /dev/disk/by-id/some-valid-disk-id-here
   label: ESP
   size: 4GiB
 
@@ -25,9 +30,8 @@ zfs:
     mirror: false
     stripe: false
   disks:
-    - /dev/disk/by-id/nvme-Corsair_MP600_PRO_NH_A5JVB427305AF2
+    - /dev/disk/by-id/another-valid-disk-id-here
 
 # Settings for the swap partition.
 swap:
-  enabled: true
-  size: 69GiB
+  enabled: false

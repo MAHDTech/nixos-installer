@@ -21,11 +21,17 @@
 go.work
 go.work.sum
 
+# Go list file
+go.list
+
 # env file
 .env
 # Devenv
 .devenv*
 devenv.local.nix
+
+# Cache
+.cache
 
 # direnv
 .direnv

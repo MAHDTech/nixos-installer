@@ -17,11 +17,17 @@ This installs NixOS;
 
 2. Setup Networking
 
-3. Create a YAML configuration file (see configs folder for examples)
+3. Copy the starting example configuration file (see configs folder for more examples)
 
 ```bash
 CONFIG_FILE="/tmp/config.yaml"
 
+cp configs/example.yaml "${CONFIG_FILE}"
+```
+
+4. Edit the configuration file as required
+
+```bash
 vim "${CONFIG_FILE}"
 ```
 
