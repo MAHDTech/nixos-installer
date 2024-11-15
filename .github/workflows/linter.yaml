@@ -54,7 +54,7 @@ jobs:
 
       - id: run_linter
         name: Run GitHub Super Linter
-        uses: super-linter/super-linter@main
+        uses: super-linter/super-linter@v7
         env:
           GITHUB_TOKEN: ${{ secrets.SUPER_LINTER_TOKEN }}
           ACTIONS_RUNNER_DEBUG: false
