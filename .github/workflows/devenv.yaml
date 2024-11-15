@@ -86,8 +86,8 @@ jobs:
         name: Direnv install
         run: |
           #nix profile install nixpkgs#nix-direnv
-          apt update --yes
-          apt install --yes direnv
+          sudo apt update --yes
+          sudo apt install --yes direnv
           eval "$(direnv hook bash)"
 
       - id: devenv_install
