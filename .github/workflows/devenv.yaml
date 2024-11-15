@@ -97,17 +97,6 @@ jobs:
         run: |
           devenv gc
 
-      - id: nix_store
-        name: Nix store
-        run: |
-          nix store --version
-
-      - id: devenv_shell
-        name: Devenv shell
-        run: |
-          devenv shell
-          exit 0
-
       - id: devenv_test
         name: Devenv test
         run: |

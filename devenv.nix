@@ -9,6 +9,7 @@
     go
     go-tools
     golangci-lint
+    nix
   ];
 
   languages.go.enable = true;
