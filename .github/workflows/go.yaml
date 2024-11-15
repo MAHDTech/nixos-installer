@@ -92,7 +92,7 @@ jobs:
 
       - id: go_lint
         name: Go Lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6
         with:
           version: latest
           args: >
