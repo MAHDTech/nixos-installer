@@ -40,7 +40,7 @@ jobs:
           if [ -f "go.sum" ];
           then
             echo "run_nancy=TRUE" >> "$GITHUB_OUTPUT"
-            go list -mod=mod -m all > go.list
+            go list -json -mod=mod -m all > go.list
           else
             echo "No go.sum file present, Nancy will not be run."
           fi
