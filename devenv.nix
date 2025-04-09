@@ -28,6 +28,7 @@ let
     git
     go-tools
     #golangci-lint
+    nix
   ];
 
 in
