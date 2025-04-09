@@ -36,7 +36,7 @@ func Execute(execute bool, cmdName string, args ...string) error {
 		return fmt.Errorf("command not found %s: %w", cmdName, err)
 	}
 
-	cmd := exec.Command(path, args...)
+	cmd := exec.Command(path, args...) // #nosec G204
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -60,7 +60,7 @@ func ExecuteSilent(execute bool, cmdName string, args ...string) error {
 		return fmt.Errorf("command not found %s: %w", cmdName, err)
 	}
 
-	cmd := exec.Command(path, args...)
+	cmd := exec.Command(path, args...) // #nosec G204
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -85,7 +85,7 @@ func ExecuteStdOut(execute bool, cmdName string, args ...string) (string, error)
 		return "", fmt.Errorf("command not found %s: %w", cmdName, err)
 	}
 
-	cmd := exec.Command(path, args...)
+	cmd := exec.Command(path, args...) // #nosec G204
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
