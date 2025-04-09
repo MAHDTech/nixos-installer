@@ -5,15 +5,12 @@
   packages = with pkgs; [
     figlet
     git
-    go
     go-tools
     golangci-lint
     hello
-    nix
   ];
 
   languages.go.enable = true;
-  languages.nix.enable = true;
 
   difftastic.enable = true;
 

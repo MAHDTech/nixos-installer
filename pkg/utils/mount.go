@@ -72,13 +72,17 @@ func GetMountpoints(deviceID string, data []byte) ([]string, error) {
 func UnmountAll(execute bool, mountpoints []string) error {
 
 	for _, mountpoint := range mountpoints {
-		Execute(
+		log.Printf("Unmounting %s\n", mountpoint)
+		err := Execute(
 			execute,
 			"umount",
+			"-R", // Recursive unmount
 			mountpoint,
 		)
+		if err != nil {
+			// Return immediately if any unmount fails
+			return fmt.Errorf("failed to unmount %s: %w", mountpoint, err)
+		}
 	}
-
-	return nil
-
+	return nil // This assumes all unmounts succeeded or were dry-run
 }

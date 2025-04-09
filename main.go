@@ -2,10 +2,15 @@
 package main
 
 import (
+	"log"
+
 	"github.com/MAHDTech/nixos-installer/pkg/installer"
 )
 
 // Run the NixOS Installer.
 func main() {
-	installer.Run()
+	err := installer.Run()
+	if err != nil {
+		log.Fatalf("Installation failed: %v", err)
+	}
 }
