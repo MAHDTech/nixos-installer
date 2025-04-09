@@ -1,6 +1,6 @@
 ---
 # Name: JONS
-# Description: AMD Ryzen Desktop PC with NVIDIA GPU.
+# Description: AMD Ryzen Desktop PC with Intel ARC B580 GPU.
 
 # Settings for NixOS
 nixos:

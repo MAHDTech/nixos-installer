@@ -10,6 +10,10 @@ nixos:
   # The flake to use for the installation.
   flake: github:MAHDTech/nix-config#NUC
 
+  # The NixOS configuration partition on the uefi disk.
+  config:
+    enabled: true
+
 # Settings for the UEFI partition.
 uefi:
   disk: /dev/disk/by-id/usb-Samsung_Flash_Drive_FIT_0364621040007011-0:0
