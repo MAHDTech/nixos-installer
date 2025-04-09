@@ -200,11 +200,18 @@ func createZFSDatasets( //nolint:gocyclo // Function complexity is high, conside
 	)
 	if err != nil {
 		// Attempt to unmount before returning the error
-		_ = utils.Execute(
+		errUnmount := utils.Execute(
 			execute,
 			"umount",
 			mountPoint,
-		) //nolint:errcheck // Ignore unmount error here
+		)
+		if errUnmount != nil {
+			log.Printf(
+				"Warning! Failed to unmount temporary root mount %s: %v\n",
+				mountPoint,
+				errUnmount,
+			)
+		}
 		return fmt.Errorf("failed to set bootfs property on %s: %w", zfsPoolRootName, err)
 	}
 
