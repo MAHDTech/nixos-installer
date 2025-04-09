@@ -143,7 +143,9 @@ func createZFSPool(
 
 // CreateZFSDatasets creates the necessary ZFS datasets on the root pool.
 // Returns an error if any dataset creation fails.
-func createZFSDatasets(
+//
+//nolint:funlen
+func createZFSDatasets( //nolint:gocyclo // Function complexity is high, consider refactoring later.
 	execute bool,
 	zfsPoolRootName string,
 	mountPoint string,
@@ -198,7 +200,11 @@ func createZFSDatasets(
 	)
 	if err != nil {
 		// Attempt to unmount before returning the error
-		_ = utils.Execute(execute, "umount", mountPoint) // Ignore unmount error here
+		_ = utils.Execute(
+			execute,
+			"umount",
+			mountPoint,
+		) //nolint:errcheck // Ignore unmount error here
 		return fmt.Errorf("failed to set bootfs property on %s: %w", zfsPoolRootName, err)
 	}
 
