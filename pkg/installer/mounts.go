@@ -14,35 +14,49 @@ func mountFileSystems(
 	execute bool,
 	mountPoint string,
 	configData *config.Config,
-	partitionNameUEFI, partitionNameNixOSConfig, zfsPoolRootName string,
+	partitionInfo PartitionInfo,
+	zfsPoolBootName string,
+	zfsPoolRootName string,
 ) error {
 	log.Println("Mounting filesystems...")
 
-	// Define mount points based on the base mountPoint
+	// Mount point for root is just mountPoint itself, handled by zfs create/mount
+
+	// Define mount points (boot pool)
+	mountPointBoot := path.Join(mountPoint, "boot")
+
+	// Define mount points (UEFI)
 	mountPointUEFI := path.Join(mountPoint, "boot/efi")
-	mountPointNixOSConfig := path.Join(mountPoint, "boot/nixos")
+	mountPointNixOSConfig := path.Join(mountPoint, "boot/nixos-config")
+
+	// Define mount points (root pool)
 	mountPointHome := path.Join(mountPoint, "home")
 	mountPointNix := path.Join(mountPoint, "nix")
 	mountPointVar := path.Join(mountPoint, "var")
 	mountPointLib := path.Join(mountPoint, "var/lib")
 	mountPointDocker := path.Join(mountPoint, "var/lib/docker")
+	mountPointContainers := path.Join(mountPoint, "var/lib/containers")
 	mountPointTmp := path.Join(mountPoint, "tmp")
-	// Mount point for root is just mountPoint itself, handled by zfs create/mount
 
-	// Define ZFS dataset paths
+	// Define ZFS dataset paths (boot pool)
+	zfsDataSetPathBoot := path.Join(zfsPoolBootName, zfsDatasetBoot)
+
+	// Define ZFS dataset paths (root pool)
 	zfsDataSetPathRoot := path.Join(zfsPoolRootName, zfsDatasetRoot)
 	zfsDataSetPathHome := path.Join(zfsPoolRootName, zfsDatasetHome)
 	zfsDataSetPathNix := path.Join(zfsPoolRootName, zfsDatasetNixStore)
 	zfsDataSetPathVar := path.Join(zfsPoolRootName, zfsDatasetVar)
 	zfsDataSetPathLib := path.Join(zfsPoolRootName, zfsDatasetLib)
 	zfsDataSetPathDocker := path.Join(zfsPoolRootName, zfsDatasetDocker)
+	zfsDataSetPathContainers := path.Join(zfsPoolRootName, zfsDatasetContainers)
 	zfsDataSetPathTmp := path.Join(zfsPoolRootName, zfsDatasetTmp)
-	// Boot dataset/pool is not explicitly mounted here in the original script, seems handled by NixOS config generation?
 
-	// Mount the root dataset first (was mounted temporarily before, needs proper mount)
-	log.Printf("Mounting ZFS root %s to %s.\n", zfsDataSetPathRoot, mountPoint)
-	err := utils.Execute(
+	// 1. Mount the underlying root dataset to the mount point
+	//    Example: /mnt/nixos
+	log.Printf("Mounting ZFS dataset %s to %s.\n", zfsDataSetPathRoot, mountPoint)
+	_, err := utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"mount",
 		"-t",
 		"zfs",
@@ -53,43 +67,60 @@ func mountFileSystems(
 		return fmt.Errorf("failed to mount root filesystem: %w", err)
 	}
 
-	// Mount the UEFI partition.
-	log.Printf("Mounting UEFI partition %s to %s.\n", partitionNameUEFI, mountPointUEFI)
-	err = utils.Execute(
+	// 2. Mount the boot pool.
+	//    Example: /mnt/nixos/boot
+	log.Printf("Mounting ZFS dataset %s to %s.\n", zfsDataSetPathBoot, mountPointBoot)
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
+		"mount",
+		"-t",
+		"zfs",
+		zfsDataSetPathBoot,
+		mountPointBoot,
+	)
+
+	// 3. Mount the UEFI partition.
+	//    Example: /mnt/nixos/boot/efi
+	log.Printf("Mounting UEFI partition %s to %s.\n", partitionInfo.UEFI, mountPointUEFI)
+	_, err = utils.Execute(
+		execute,
+		utils.ModeNormal,
 		"mount",
 		"-o",
-		"X-mount.mkdir", // Option to create dir if it doesn't exist (should exist from prepare.go)
+		"X-mount.mkdir", // Option to create dir if it doesn't exist
 		"-t",
 		"vfat", // Filesystem type for UEFI
-		partitionNameUEFI,
+		partitionInfo.UEFI,
 		mountPointUEFI,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to mount UEFI partition: %w", err)
 	}
 
-	// Mount the NixOS config partition if enabled.
+	// 4. Mount the NixOS config partition if enabled.
+	//    Example: /mnt/nixos/boot/nixos-config
 	if configData.NixOS.Config.Enabled {
 		log.Printf(
 			"Mounting NixOS config partition %s to %s.\n",
-			partitionNameNixOSConfig,
+			partitionInfo.NixOSConfig,
 			mountPointNixOSConfig,
 		)
-		err = utils.Execute(
+		_, err = utils.Execute(
 			execute,
+			utils.ModeNormal,
 			"mount",
 			"-o",
 			"X-mount.mkdir",
 			"-t",
 			"xfs", // Filesystem type used during partitioning
-			partitionNameNixOSConfig,
+			partitionInfo.NixOSConfig,
 			mountPointNixOSConfig,
 		)
 		if err != nil {
 			return fmt.Errorf(
 				"failed to mount NixOS config partition %s: %w",
-				partitionNameNixOSConfig,
+				partitionInfo.NixOSConfig,
 				err,
 			)
 		}
@@ -97,10 +128,12 @@ func mountFileSystems(
 		log.Println("Skipping NixOS config partition mounting as it is disabled.")
 	}
 
-	// Mount the home dataset.
-	log.Printf("Mounting %s to %s.\n", zfsDataSetPathHome, mountPointHome)
-	err = utils.Execute(
+	// 5. Mount the home dataset.
+	//    Example: /mnt/nixos/home
+	log.Printf("Mounting ZFS dataset %s to %s.\n", zfsDataSetPathHome, mountPointHome)
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"mount",
 		"-o",
 		"X-mount.mkdir",
@@ -113,10 +146,12 @@ func mountFileSystems(
 		return fmt.Errorf("failed to mount home filesystem: %w", err)
 	}
 
-	// Mount the nix dataset.
-	log.Printf("Mounting %s to %s.\n", zfsDataSetPathNix, mountPointNix)
-	err = utils.Execute(
+	// 6. Mount the nix dataset.
+	//    Example: /mnt/nixos/nix
+	log.Printf("Mounting ZFS dataset %s to %s.\n", zfsDataSetPathNix, mountPointNix)
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"mount",
 		"-o",
 		"X-mount.mkdir",
@@ -129,16 +164,13 @@ func mountFileSystems(
 		return fmt.Errorf("failed to mount nix filesystem: %w", err)
 	}
 
-	// Mount the var dataset (which has canmount=off, so we mount children).
-	// The original script mounts 'var' itself, which might rely on ZFS auto-mounting children if properties are set right.
-	// Let's stick to mounting children explicitly based on dataset creation.
-	log.Printf(
-		"Mounting %s to %s.\n",
-		zfsDataSetPathVar,
-		mountPointVar,
-	) // This might not be needed if children are mounted? Let's keep it for now matching original.
-	err = utils.Execute(
+	// 7. Mount the var dataset
+	//    Example: /mnt/nixos/var
+	//    This dataset has canmount=off, so we mount the children datasets.
+	log.Printf("Mounting ZFS dataset %s to %s.\n", zfsDataSetPathVar, mountPointVar)
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"mount",
 		"-o",
 		"X-mount.mkdir",
@@ -151,10 +183,12 @@ func mountFileSystems(
 		return fmt.Errorf("failed to mount var filesystem: %w", err)
 	}
 
-	// Mount the lib dataset.
-	log.Printf("Mounting %s to %s.\n", zfsDataSetPathLib, mountPointLib)
-	err = utils.Execute(
+	// 8. Mount the lib dataset.
+	//    Example: /mnt/nixos/var/lib
+	log.Printf("Mounting ZFS dataset %s to %s.\n", zfsDataSetPathLib, mountPointLib)
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"mount",
 		"-o",
 		"X-mount.mkdir",
@@ -167,10 +201,12 @@ func mountFileSystems(
 		return fmt.Errorf("failed to mount lib filesystem: %w", err)
 	}
 
-	// Mount the docker dataset.
-	log.Printf("Mounting %s to %s.\n", zfsDataSetPathDocker, mountPointDocker)
-	err = utils.Execute(
+	// 9. Mount the docker dataset.
+	//    Example: /mnt/nixos/var/lib/docker
+	log.Printf("Mounting ZFS dataset %s to %s.\n", zfsDataSetPathDocker, mountPointDocker)
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"mount",
 		"-o",
 		"X-mount.mkdir",
@@ -183,10 +219,30 @@ func mountFileSystems(
 		return fmt.Errorf("failed to mount docker filesystem: %w", err)
 	}
 
-	// Mount the tmp dataset.
-	log.Printf("Mounting %s to %s.\n", zfsDataSetPathTmp, mountPointTmp)
-	err = utils.Execute(
+	// 10. Mount the containers dataset.
+	//     Example: /mnt/nixos/var/lib/containers
+	log.Printf("Mounting ZFS dataset %s to %s.\n", zfsDataSetPathContainers, mountPointContainers)
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
+		"mount",
+		"-o",
+		"X-mount.mkdir",
+		"-t",
+		"zfs",
+		zfsDataSetPathContainers,
+		mountPointContainers,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to mount containers filesystem: %w", err)
+	}
+
+	// 11. Mount the tmp dataset.
+	//     Example: /mnt/nixos/tmp
+	log.Printf("Mounting ZFS dataset %s to %s.\n", zfsDataSetPathTmp, mountPointTmp)
+	_, err = utils.Execute(
+		execute,
+		utils.ModeNormal,
 		"mount",
 		"-o",
 		"X-mount.mkdir",
@@ -199,10 +255,11 @@ func mountFileSystems(
 		return fmt.Errorf("failed to mount tmp filesystem: %w", err)
 	}
 
-	// Set permissions for /tmp
+	// 12. Set permissions for /tmp
 	log.Printf("Setting permissions for %s\n", mountPointTmp)
-	err = utils.Execute(
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"chmod",
 		"1777",
 		mountPointTmp,
@@ -211,6 +268,6 @@ func mountFileSystems(
 		return fmt.Errorf("failed to set permissions for /tmp: %w", err)
 	}
 
-	log.Println("Filesystems mounted.")
+	log.Println("All filesystems mounted!")
 	return nil
 }

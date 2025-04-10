@@ -13,7 +13,11 @@ import (
 // Returns an error if any step of the installation fails.
 func Run() error {
 
-	// --- Configuration and Flags ---
+	log.Println("### Starting NixOS installation process ###")
+
+	/*
+		--- Configuration and Flags ---
+	*/
 	configFile := flag.String(
 		"config",
 		"config.yaml",
@@ -37,57 +41,91 @@ func Run() error {
 		log.Println("Running in dry run mode, see '-help' for more information.")
 	}
 
-	// Read and validate configuration
+	/*
+	 Read and validate configuration
+	*/
 	configData, err := config.ReadConfig(*configFile)
 	if err != nil {
 		return fmt.Errorf("failed to read or validate configuration: %w", err)
 	}
 
-	// --- Preparation Phase ---
+	/*
+	 --- Preparation Phase ---
+
+	 Ensure the local mountpoints are available and create the necessary directories.
+	*/
 	log.Println("--- Starting Preparation Phase ---")
-	_, err = checkMountpoints(*execute) // We don't use the output here
+
+	// Check the mountpoints.
+	_, err = checkMountpoints(*execute)
 	if err != nil {
 		// Log non-fatal error, checking mounts is informative but not critical for proceeding
 		log.Printf("Warning: Failed to check initial mountpoints: %v", err)
 	}
-	err = createDirectories(*execute, "/mnt", configData)
+
+	// Create the necessary directories.
+	err = createDirectories(*execute, mountPoint, configData)
 	if err != nil {
 		return fmt.Errorf("failed to create directories: %w", err)
 	}
+
 	log.Println("--- Preparation Phase Complete ---")
 
-	// --- Disk Setup Phase ---
+	/*
+	 --- Disk Setup Phase ---
+	*/
 	log.Println("--- Starting Disk Setup Phase ---")
-	partitionNameUEFI, partitionNameNixOSConfig, _, _, err := partitionDisks(*execute, configData)
+
+	// Partition the disks.
+	partitionInfo, err := partitionDisks(*execute, configData)
 	if err != nil {
 		return fmt.Errorf("failed during disk partitioning: %w", err)
 	}
-	zfsDiskIDs, err := getZFSDiskIDs(configData.ZFS.Disks)
+
+	// Get the ZFS disk IDs which are used to create the ZFS pool.
+	zfsDiskIDs, err := getZFSDiskIDs(*execute, configData.ZFS.Disks)
 	if err != nil {
 		return fmt.Errorf("failed to get ZFS disk IDs: %w", err)
 	}
 	log.Println("--- Disk Setup Phase Complete ---")
 
-	// --- ZFS Setup Phase ---
+	/*
+	 --- ZFS Setup Phase ---
+	*/
 	log.Println("--- Starting ZFS Setup Phase ---")
-	_, zfsPoolRootName, err := createZFSPool(*execute, "/mnt", configData, zfsDiskIDs)
+
+	// Create the ZFS pool and capture the boot and root pool names.
+	zfsPoolBootName, zfsPoolRootName, err := createZFSPool(*execute, "/mnt", configData, zfsDiskIDs)
 	if err != nil {
 		return fmt.Errorf("failed to create ZFS pool: %w", err)
 	}
-	err = createZFSDatasets(*execute, zfsPoolRootName, "/mnt", configData)
+	log.Printf("Created ZFS Boot Pool: %s\n", zfsPoolBootName)
+	log.Printf("Created ZFS Root Pool: %s\n", zfsPoolRootName)
+
+	// Create the ZFS datasets for the boot pool.
+	err = createZFSBootDatasets(*execute, zfsPoolRootName, mountPoint, configData)
 	if err != nil {
-		return fmt.Errorf("failed to create ZFS datasets: %w", err)
+		return fmt.Errorf("failed to create ZFS boot datasets on pool %s: %w", zfsPoolBootName, err)
 	}
+
+	// Create the ZFS datasets for the root pool.
+	err = createZFSRootDatasets(*execute, zfsPoolRootName, mountPoint, configData)
+	if err != nil {
+		return fmt.Errorf("failed to create ZFS root datasets on pool %s: %w", zfsPoolRootName, err)
+	}
+
 	log.Println("--- ZFS Setup Phase Complete ---")
 
-	// --- Mounting Phase ---
+	/*
+	 --- Mounting Phase ---
+	*/
 	log.Println("--- Starting Mounting Phase ---")
 	err = mountFileSystems(
 		*execute,
 		mountPoint,
 		configData,
-		partitionNameUEFI,
-		partitionNameNixOSConfig,
+		partitionInfo,
+		zfsPoolBootName,
 		zfsPoolRootName,
 	)
 	if err != nil {
@@ -95,22 +133,38 @@ func Run() error {
 	}
 	log.Println("--- Mounting Phase Complete ---")
 
-	// --- NixOS Installation Phase ---
-	log.Println("--- Starting NixOS Installation Phase ---")
-	err = generateNixOSConfig(*execute, "/mnt")
+	/*
+	 --- NixOS Configuration Phase ---
+	*/
+	log.Println("--- Starting NixOS Configuration Phase ---")
+
+	// Generate the NixOS configuration.
+	err = generateNixOSConfig(*execute, mountPoint)
 	if err != nil {
 		return fmt.Errorf("failed to generate NixOS configuration: %w", err)
 	}
-	err = modifyNixOSConfig(*execute, "/mnt", configData)
+
+	// Modify the NixOS configuration.
+	err = modifyNixOSConfig(*execute, mountPoint, configData)
 	if err != nil {
 		return fmt.Errorf("failed to modify NixOS configuration: %w", err)
 	}
-	err = installNixOS(*execute, *executeInstall, "/mnt", configData)
+
+	log.Println("--- NixOS Configuration Phase Complete ---")
+
+	/*
+	 --- NixOS Installation Phase ---
+	*/
+	log.Println("--- Starting NixOS Installation Phase ---")
+
+	// Install NixOS.
+	err = installNixOS(*execute, *executeInstall, mountPoint, configData)
 	if err != nil {
 		return fmt.Errorf("failed during NixOS installation: %w", err)
 	}
+
 	log.Println("--- NixOS Installation Phase Complete ---")
 
-	log.Println("NixOS installation process finished.")
-	return nil // Indicate success
+	log.Println("### Finished NixOS installation process ###")
+	return nil
 }

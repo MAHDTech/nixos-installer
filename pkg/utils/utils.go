@@ -8,77 +8,27 @@ import (
 	"os/exec"
 )
 
-// IsValidBlockDevice function will return true if the device is a valid block device.
-func IsValidBlockDevice(device string) bool {
-	// Check if the device exists
-	_, err := os.Stat(device)
-	if os.IsNotExist(err) {
-		return false
-	}
+// ExecuteMode defines how the Execute function handles command execution
+type ExecuteMode int
 
-	// Check if it's a block device
-	info, err := os.Stat(device)
-	if err != nil {
-		return false
-	}
+const (
+	// ModeNormal runs the command and returns any errors
+	ModeNormal ExecuteMode = iota
+	// ModeSilent runs the command and only logs errors without returning them
+	ModeSilent
+	// ModeStdOut captures and returns stdout from the command
+	ModeStdOut
+)
 
-	// Use the mode bits to determine if it's a block device
-	return (info.Mode() & os.ModeDevice) == os.ModeDevice
+// Execute function will execute a command with the specified mode.
+// It returns stdout (if requested) and an error if the command cannot be found or fails to run.
+func Execute(
+	execute bool,
+	mode ExecuteMode,
+	cmdName string,
+	args ...string,
+) (string, error) {
 
-}
-
-// Execute function will execute a command and check for errors.
-// It returns an error if the command cannot be found or fails to run.
-func Execute(execute bool, cmdName string, args ...string) error {
-	// Verify the command exists in PATH
-	path, err := exec.LookPath(cmdName)
-	if err != nil {
-		return fmt.Errorf("command not found %s: %w", cmdName, err)
-	}
-
-	cmd := exec.Command(path, args...) // #nosec G204
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-
-	if execute {
-		err := cmd.Run()
-		if err != nil {
-			return fmt.Errorf("failed to execute command %s: %w", cmd.String(), err)
-		}
-	}
-	log.Printf("DRY RUN: Would run %s\n", cmd.String())
-	return nil // Command executed successfully or dry run is considered successful
-}
-
-// ExecuteSilent function will execute a command and ignore any errors during run.
-// It still returns an error if the command cannot be found.
-func ExecuteSilent(execute bool, cmdName string, args ...string) error {
-	// Verify the command exists in PATH
-	path, err := exec.LookPath(cmdName)
-	if err != nil {
-		return fmt.Errorf("command not found %s: %w", cmdName, err)
-	}
-
-	cmd := exec.Command(path, args...) // #nosec G204
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-
-	if execute {
-		err := cmd.Run()
-		if err != nil {
-			// Log the error but don't return it, as per function's purpose
-			log.Printf("Command failed (but ignored): %s, Error: %s", cmd.String(), err)
-		}
-	}
-	log.Printf("DRY RUN: Would run %s\n", cmd.String())
-	return nil // Even if the command failed, the function's contract is met or dry run is considered successful
-}
-
-// ExecuteStdOut function will execute a command and return the stdout.
-// It returns an error if the command cannot be found or fails to run.
-func ExecuteStdOut(execute bool, cmdName string, args ...string) (string, error) {
 	// Verify the command exists in PATH
 	path, err := exec.LookPath(cmdName)
 	if err != nil {
@@ -86,23 +36,68 @@ func ExecuteStdOut(execute bool, cmdName string, args ...string) (string, error)
 	}
 
 	cmd := exec.Command(path, args...) // #nosec G204
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
 
-	if execute {
-		output, err := cmd.Output() // Captures Stdout
+	// Configure command IO based on mode
+	if mode == ModeStdOut {
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+	} else {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+	}
+
+	log.Printf("%s: %s\n",
+		map[bool]string{true: "EXECUTING", false: "DRY RUN"}[execute],
+		cmd.String(),
+	)
+
+	// Skip execution if we're in dry run mode
+	if !execute {
+		return "", nil
+	}
+
+	// Execute based on the selected mode
+	switch mode {
+
+	case ModeNormal:
+		if err := cmd.Run(); err != nil {
+			return "", fmt.Errorf("failed to execute command %s: %w", cmd.String(), err)
+		}
+		return "", nil
+
+	case ModeSilent:
+		if err := cmd.Run(); err != nil {
+			log.Printf("Command failed (but ignored): %s, Error: %s", cmd.String(), err)
+		}
+		return "", nil
+
+	case ModeStdOut:
+		output, err := cmd.Output() // Capture the Stdout
 		if err != nil {
-			// If cmd.Output fails, err is *exec.ExitError which contains Stderr
 			return "", fmt.Errorf(
 				"failed to execute command %s and capture output: %w",
 				cmd.String(),
 				err,
 			)
 		}
-		return string(output), nil // Command executed successfully
+		return string(output), nil
 	}
-	log.Printf("DRY RUN: Would run %s\n", cmd.String())
-	return "", nil // Dry run is considered successful, returns empty string and no error
+
+	// This should never happen if the mode is valid
+	return "", fmt.Errorf("invalid execution mode: %d", mode)
+}
+
+// IsValidBlockDevice function will return true if the device is a valid block device.
+func IsValidBlockDevice(device string) bool {
+	// Check if the device exists
+	deviceInfo, err := os.Stat(device)
+	if err != nil {
+		return false
+	}
+
+	// Make sure the ModeDevice bit is set, but not the ModeDir or ModeRegular bits
+	return (deviceInfo.Mode() & os.ModeDevice) == os.ModeDevice
 }
 
 // FileExists function will return true if the file exists.

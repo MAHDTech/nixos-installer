@@ -11,28 +11,44 @@ import (
 	utils "github.com/MAHDTech/nixos-installer/pkg/utils"
 )
 
+// PartitionInfo holds information about created partitions
+type PartitionInfo struct {
+	UEFI        string   // UEFI/ESP partition
+	NixOSConfig string   // NixOS configuration partition
+	ZFSBoot     []string // ZFS boot partitions can be one or more
+	ZFSData     []string // ZFS data/root partitions can be one or more
+}
+
 // PartitionDisks handles partitioning the specified disks according to the configuration.
-// Returns partition names and an error if any partitioning step fails.
+// Returns partition info and an error if any partitioning step fails.
 func partitionDisks(
 	execute bool,
 	configData *config.Config,
-) (string, string, string, string, error) {
+) (PartitionInfo, error) {
+	partInfo := PartitionInfo{}
+	var err error
+
 	log.Println("--- Partitioning Disks ---")
 
-	// --- UEFI Disk ---
-	uefiDisk := configData.UEFI.Disk
-	partitionNameUEFI, err := partitionUEFIDisk(execute, uefiDisk)
+	/*
+	 --- UEFI Disk ---
+	*/
+	uefiDiskConfig := configData.UEFI
+	partInfo.UEFI, err = partitionUEFIDisk(execute, configData)
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("failed to partition UEFI disk %s: %w", uefiDisk, err)
+		return PartitionInfo{}, fmt.Errorf("failed to partition UEFI disk %s: %w", uefiDiskConfig.Disk, err)
 	}
 
-	// --- NixOS Config Disk (if enabled, uses same disk as UEFI) ---
-	nixosConfigDisk := configData.UEFI.Disk // Use UEFI disk for NixOS config partition
-	partitionNameNixOSConfig := ""          // Initialize
+	/*
+	 --- NixOS Config Disk ---
+
+	 (if enabled, uses same disk as UEFI)
+	*/
+	nixosConfigDisk := configData.UEFI.Disk
 	if configData.NixOS.Config.Enabled {
-		partitionNameNixOSConfig, err = partitionNixOSConfigDisk(execute, nixosConfigDisk, uefiDisk)
+		partInfo.NixOSConfig, err = partitionNixOSConfigDisk(execute, nixosConfigDisk, uefiDiskConfig.Disk)
 		if err != nil {
-			return "", "", "", "", fmt.Errorf(
+			return PartitionInfo{}, fmt.Errorf(
 				"failed to partition NixOS config on disk %s: %w",
 				nixosConfigDisk,
 				err,
@@ -40,21 +56,24 @@ func partitionDisks(
 		}
 	}
 
-	// --- ZFS Disks ---
-	zfsDisks := configData.ZFS.Disks
-	var partitionNameZFSBoot string
-	var partitionNameZFSData string
-	if len(zfsDisks) > 0 {
-		bootPart, dataPart, err := partitionZFSDisk(execute, zfsDisks[0], 0)
+	/*
+	 --- ZFS Disks ---
+
+	 Each ZFS disk is partitioned into a boot and data partition.
+
+	 In a stripe or mirror configuration, the boot and data partitions are created on each disk.
+	*/
+	for index, zfsDisk := range configData.ZFS.Disks {
+		bootPart, dataPart, err := partitionZFSDisk(execute, zfsDisk, index, configData)
 		if err != nil {
-			return "", "", "", "", fmt.Errorf(
+			return PartitionInfo{}, fmt.Errorf(
 				"failed to partition ZFS disk %s: %w",
-				zfsDisks[0],
+				zfsDisk,
 				err,
 			)
 		}
-		partitionNameZFSBoot = bootPart
-		partitionNameZFSData = dataPart
+		partInfo.ZFSBoot = append(partInfo.ZFSBoot, bootPart)
+		partInfo.ZFSData = append(partInfo.ZFSData, dataPart)
 	}
 
 	// Sleep briefly to allow the kernel to recognize new partitions
@@ -64,47 +83,61 @@ func partitionDisks(
 	}
 
 	log.Println("--- Disk Partitioning Complete ---")
-	return partitionNameUEFI, partitionNameNixOSConfig, partitionNameZFSBoot, partitionNameZFSData, nil
+	return partInfo, nil
 }
 
 // PartitionUEFIDisk handles partitioning and formatting for the UEFI disk.
 // Returns the UEFI partition name or an error.
-func partitionUEFIDisk(execute bool, uefiDisk string) (partitionNameUEFI string, err error) {
+func partitionUEFIDisk(execute bool, configData *config.Config) (partitionNameUEFI string, err error) {
 	partitionNumberUEFI := 1
-	partitionNameUEFI = fmt.Sprintf("%s%d", uefiDisk, partitionNumberUEFI)
+	partitionNameUEFI = fmt.Sprintf("%s%d", configData.UEFI.Disk, partitionNumberUEFI)
+	partitionSizeUEFI := configData.UEFI.Size
 
-	log.Printf("Partitioning UEFI disk: %s\n", uefiDisk)
-	err = utils.Execute(
+	log.Printf("Partitioning UEFI disk: %s\n", configData.UEFI.Disk)
+
+	// Delete existing partitions.
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"sgdisk",
-		fmt.Sprintf("--zap-all=%s", uefiDisk),
+		fmt.Sprintf("--zap-all=%s", configData.UEFI.Disk),
 	)
 	if err != nil {
-		return "", fmt.Errorf("sgdisk --zap-all failed for %s: %w", uefiDisk, err)
+		return "", fmt.Errorf("sgdisk --zap-all failed for %s: %w", configData.UEFI.Disk, err)
 	}
-	err = utils.Execute(
+
+	// Create the UEFI partition with the specified size.
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"sgdisk",
-		fmt.Sprintf("--new=%d:1M:1G", partitionNumberUEFI),
+		fmt.Sprintf("--new=%d:1M:%s", partitionNumberUEFI, partitionSizeUEFI),
 		fmt.Sprintf("--typecode=%d:ef00", partitionNumberUEFI),
 		fmt.Sprintf("--change-name=%d:uefi", partitionNumberUEFI),
-		uefiDisk,
+		configData.UEFI.Disk,
 	)
 	if err != nil {
-		return "", fmt.Errorf("sgdisk --new (UEFI partition) failed for %s: %w", uefiDisk, err)
+		return "", fmt.Errorf("sgdisk --new (UEFI partition) failed for %s: %w", configData.UEFI.Disk, err)
 	}
-	err = utils.Execute(
+
+	// Print the partition table.
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"sgdisk",
-		fmt.Sprintf("--print=%s", uefiDisk),
+		fmt.Sprintf("--print=%s", configData.UEFI.Disk),
 	)
 	if err != nil {
 		// Log print error but don't fail the whole operation
-		log.Printf("Warning: sgdisk --print failed for %s after partitioning: %v", uefiDisk, err)
+		log.Printf("Warning: sgdisk --print failed for %s after partitioning: %v", configData.UEFI.Disk, err)
 	}
+
 	log.Printf("Formatting UEFI partition: %s\n", partitionNameUEFI)
-	err = utils.Execute(
+
+	// Format the UEFI partition.
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"mkfs.fat",
 		"-F",
 		"32",
@@ -125,10 +158,13 @@ func partitionNixOSConfigDisk(
 	nixosConfigDisk string,
 	uefiDisk string,
 ) (partitionNameNixOSConfig string, err error) {
-	partitionNumberNixOSConfig := 1
+
 	// If the NixOS config disk is the same as the UEFI disk, use the next partition number
+	var partitionNumberNixOSConfig int
 	if nixosConfigDisk == uefiDisk {
 		partitionNumberNixOSConfig = 2 // UEFI is partition 1
+	} else {
+		partitionNumberNixOSConfig = 1
 	}
 	partitionNameNixOSConfig = fmt.Sprintf("%s%d", nixosConfigDisk, partitionNumberNixOSConfig)
 
@@ -138,8 +174,10 @@ func partitionNixOSConfigDisk(
 		partitionNumberNixOSConfig,
 	)
 
-	err = utils.Execute(
+	// Create the NixOS config partition.
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"sgdisk",
 		fmt.Sprintf("--new=%d:0:0", partitionNumberNixOSConfig),
 		fmt.Sprintf("--typecode=%d:8300", partitionNumberNixOSConfig), // Linux filesystem
@@ -153,8 +191,11 @@ func partitionNixOSConfigDisk(
 			err,
 		)
 	}
-	err = utils.Execute(
+
+	// Print the partition table.
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"sgdisk",
 		fmt.Sprintf("--print=%s", nixosConfigDisk),
 	)
@@ -166,9 +207,13 @@ func partitionNixOSConfigDisk(
 			err,
 		)
 	}
+
 	log.Printf("Formatting NixOS config partition: %s\n", partitionNameNixOSConfig)
-	err = utils.Execute(
+
+	// Format the NixOS config partition.
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"mkfs.xfs", // Using XFS as specified in mount logic
 		"-L",
 		"nixos-config",
@@ -187,6 +232,7 @@ func partitionZFSDisk(
 	execute bool,
 	zfsDisk string,
 	index int,
+	configData *config.Config,
 ) (partitionNameZFSBoot string, partitionNameZFSData string, err error) {
 	partitionNumberZFSBoot := 1
 	partitionNumberZFSData := 2
@@ -195,25 +241,27 @@ func partitionZFSDisk(
 
 	log.Printf("Partitioning ZFS disk %d: %s\n", index+1, zfsDisk)
 
-	// Delete existing partitions.
-	err = utils.Execute(
+	// Delete all existing partitions.
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"sgdisk",
 		fmt.Sprintf("--zap-all=%s", zfsDisk),
 	)
 	if err != nil {
 		return "", "", fmt.Errorf("sgdisk --zap-all failed for ZFS disk %s: %w", zfsDisk, err)
 	}
-	err = utils.Execute(
+
+	// Create the ZFS boot partition with the configured size.
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"sgdisk",
-		// Hardcode boot partition size to 1G as it's not in config.
-		// This mirrors the original implicit UEFI partition size.
 		fmt.Sprintf(
 			"--new=%d:1M:%s",
 			partitionNumberZFSBoot,
-			"1G",
-		), // Was configData.ZFS.BootSize
+			configData.ZFS.BootPool.Size,
+		),
 		fmt.Sprintf("--typecode=%d:be00", partitionNumberZFSBoot),                   // Solaris Boot
 		fmt.Sprintf("--change-name=%d:zfsboot-%d", partitionNumberZFSBoot, index+1), // Unique name
 		zfsDisk,
@@ -225,8 +273,11 @@ func partitionZFSDisk(
 			err,
 		)
 	}
-	err = utils.Execute(
+
+	// Create the ZFS root partition with all remaining space.
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"sgdisk",
 		fmt.Sprintf("--new=%d:0:0", partitionNumberZFSData),
 		fmt.Sprintf("--typecode=%d:bf00", partitionNumberZFSData),                   // Solaris Root
@@ -240,8 +291,11 @@ func partitionZFSDisk(
 			err,
 		)
 	}
-	err = utils.Execute(
+
+	// Print the partition table.
+	_, err = utils.Execute(
 		execute,
+		utils.ModeNormal,
 		"sgdisk",
 		fmt.Sprintf("--print=%s", zfsDisk),
 	)
@@ -259,18 +313,37 @@ func partitionZFSDisk(
 
 // GetZFSDiskIDs finds the /dev/disk/by-id/ paths for the ZFS data partitions.
 // Returns a slice of disk IDs or an error if any ID cannot be found.
-func getZFSDiskIDs(zfsDisks []string) (zfsDiskIDs []string, err error) {
+func getZFSDiskIDs(execute bool, zfsDisks []string) (zfsDiskIDs []string, err error) {
+
 	log.Println("--- Retrieving ZFS Disk IDs ---")
+
 	zfsDiskIDs = make([]string, len(zfsDisks))
-	for i, zfsDisk := range zfsDisks {
+
+	// If in dry run mode, generate simulated IDs
+	if !execute {
+		for index, zfsDisk := range zfsDisks {
+			// Create a simulated ID for dry run
+			partitionSuffix := fmt.Sprintf("%s2", path.Base(zfsDisk))
+			simID := fmt.Sprintf("/dev/disk/by-id/%s-part2-simulated", partitionSuffix)
+			zfsDiskIDs[index] = simID
+			log.Printf("Dry run: Simulating ZFS data disk %d ID: %s\n", index+1, simID)
+		}
+		return zfsDiskIDs, nil
+	}
+
+	// Get the real IDs for the ZFS data partitions when not in dry-run mode.
+	for index, zfsDisk := range zfsDisks {
 		partitionSuffix := fmt.Sprintf("%s2", path.Base(zfsDisk))
 
 		// Sometimes /dev/disk/by-id takes a moment to update
+		// so we need to retry a few times.
 		var diskID string
 		var execErr error
-		for j := 0; j < 5; j++ { // Retry a few times
-			diskID, execErr = utils.ExecuteStdOut(
-				true, // Always execute find, even in dry-run, as we need the ID
+		for attempt := 0; attempt < 5; attempt++ {
+
+			diskID, execErr = utils.Execute(
+				execute,
+				utils.ModeStdOut,
 				"find",
 				"/dev/disk/by-id/",
 				"-lname",
@@ -280,19 +353,23 @@ func getZFSDiskIDs(zfsDisks []string) (zfsDiskIDs []string, err error) {
 				log.Printf(
 					"Warning: 'find /dev/disk/by-id' command failed for %s (attempt %d): %v",
 					partitionSuffix,
-					j+1,
+					attempt+1,
 					execErr,
 				)
 				// Don't break here, maybe the command works next time or the ID appears
 			}
+
 			diskID = strings.TrimSpace(diskID)
 			if diskID != "" {
 				break // Found the ID
 			}
+
 			// Wait regardless of execute flag because the ID is needed even for dry run.
-			log.Printf("Waiting for /dev/disk/by-id for %s (attempt %d)...", zfsDisk, j+1)
+			log.Printf("Waiting for /dev/disk/by-id for %s (attempt %d)...", zfsDisk, attempt+1)
 			time.Sleep(1 * time.Second)
+
 		}
+
 		if diskID == "" {
 			// If execErr was nil but diskID is still empty, the partition wasn't found
 			return nil, fmt.Errorf(
@@ -301,9 +378,10 @@ func getZFSDiskIDs(zfsDisks []string) (zfsDiskIDs []string, err error) {
 			)
 		}
 
-		zfsDiskIDs[i] = diskID
-		log.Printf("Found ZFS data disk %d ID: %s for partition %s\n", i+1, diskID, partitionSuffix)
+		zfsDiskIDs[index] = diskID
+		log.Printf("Found ZFS data disk %d ID: %s for partition %s\n", index+1, diskID, partitionSuffix)
 	}
+
 	log.Println("--- ZFS Disk ID Retrieval Complete ---")
 	return zfsDiskIDs, nil
 }
