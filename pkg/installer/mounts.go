@@ -69,8 +69,8 @@ func mountFileSystems(
 	}
 
 	// 4. Mount the NixOS config partition if enabled.
-	//    Example: /mnt/nixos + "/boot/nixos-config"
-	mountPointNixOSConfig := path.Join(mountPoint, "boot/nixos-config")
+	//    Example: /mnt/nixos + "/boot/nixos"
+	mountPointNixOSConfig := path.Join(mountPoint, "boot/nixos")
 	if configData.NixOS.Config.Enabled {
 		log.Printf(
 			"Mounting NixOS config partition %s to %s.\n",

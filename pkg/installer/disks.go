@@ -331,7 +331,7 @@ func partitionNixOSConfigDisk(
 		"sgdisk",
 		fmt.Sprintf("--new=%d:0:0", partitionNumberNixOSConfig),
 		fmt.Sprintf("--typecode=%d:8300", partitionNumberNixOSConfig), // Linux filesystem
-		fmt.Sprintf("--change-name=%d:nixos-config", partitionNumberNixOSConfig),
+		fmt.Sprintf("--change-name=%d:nixos", partitionNumberNixOSConfig),
 		nixosConfigDisk,
 	)
 	if err != nil {
@@ -369,7 +369,7 @@ func partitionNixOSConfigDisk(
 		"mkfs.xfs",
 		"-f",
 		"-L",
-		"nixos-config",
+		"nixos",
 	)
 	if err != nil {
 		return "", fmt.Errorf("mkfs.xfs failed for %s: %w", partitionNameNixOSConfig, err)

@@ -93,8 +93,8 @@ func createDirectories(execute bool, mountPoint string, configData *config.Confi
 
 	// Create the 'nixos' configuration mount point if enabled.
 	if configData.NixOS.Config.Enabled {
-		mountPointNixOSConfig := path.Join(mountPoint, "boot/nixos-config")
-		log.Printf("Creating mount point for 'nixos-config' at: %s\n", mountPointNixOSConfig)
+		mountPointNixOSConfig := path.Join(mountPoint, "boot/nixos")
+		log.Printf("Creating mount point for 'nixos' at: %s\n", mountPointNixOSConfig)
 		_, err = utils.Execute(
 			execute,
 			utils.ModeNormal,
