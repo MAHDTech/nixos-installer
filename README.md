@@ -65,8 +65,14 @@ cd nixos-installer
 sudo -E go run main.go \
   -config "${CONFIG_FILE}"
 
-# Nuke all the things
+# Nuke all the things but don't auto-install
 sudo -E go run main.go \
   -config "${CONFIG_FILE}" \
   -run
+
+# Nuke all the things and auto-install configured flake.
+sudo -E go run main.go \
+  -config "${CONFIG_FILE}" \
+  -run \
+  -install
 ```
