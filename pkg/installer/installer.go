@@ -149,12 +149,6 @@ func Run() error {
 		return fmt.Errorf("failed to generate NixOS configuration: %w", err)
 	}
 
-	// Modify the NixOS configuration.
-	err = modifyNixOSConfig(*execute, mountPoint, configData)
-	if err != nil {
-		return fmt.Errorf("failed to modify NixOS configuration: %w", err)
-	}
-
 	log.Println("--- NixOS Configuration Phase Complete ---")
 
 	/*
