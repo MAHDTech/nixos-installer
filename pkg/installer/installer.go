@@ -16,7 +16,7 @@ func Run() error {
 	log.Println("### Starting NixOS installation process ###")
 
 	/*
-		--- Configuration and Flags ---
+	 --- Configuration and Flags ---
 	*/
 	configFile := flag.String(
 		"config",
@@ -42,7 +42,7 @@ func Run() error {
 	}
 
 	/*
-	 Read and validate configuration
+	 --- Read and validate configuration ---
 	*/
 	configData, err := config.ReadConfig(*configFile)
 	if err != nil {
@@ -69,6 +69,12 @@ func Run() error {
 		return fmt.Errorf("failed to create directories: %w", err)
 	}
 
+	// Umount all partitions on the disks.
+	err = unmountDisks(*execute, configData)
+	if err != nil {
+		return fmt.Errorf("failed to unmount disks: %w", err)
+	}
+
 	log.Println("--- Preparation Phase Complete ---")
 
 	/*
@@ -76,13 +82,15 @@ func Run() error {
 	*/
 	log.Println("--- Starting Disk Setup Phase ---")
 
-	// Partition the disks.
+	// Wipe and partition the disks.
 	partitionInfo, err := partitionDisks(*execute, configData)
 	if err != nil {
 		return fmt.Errorf("failed during disk partitioning: %w", err)
 	}
 
-	// Get the ZFS disk IDs which are used to create the ZFS pool.
+	// Users might provide disks in /dev/X format.
+	// We need to convert them to /dev/disk/by-id/X format as
+	// ZFS pools work better with the by-id format.
 	zfsDiskIDs, err := getZFSDiskIDs(*execute, configData.ZFS.Disks)
 	if err != nil {
 		return fmt.Errorf("failed to get ZFS disk IDs: %w", err)
@@ -94,8 +102,8 @@ func Run() error {
 	*/
 	log.Println("--- Starting ZFS Setup Phase ---")
 
-	// Create the ZFS pool and capture the boot and root pool names.
-	zfsPoolBootName, zfsPoolRootName, err := createZFSPool(*execute, "/mnt", configData, zfsDiskIDs)
+	// Create the ZFS pools and capture the boot and root pool names.
+	zfsPoolBootName, zfsPoolRootName, err := createZFSPool(*execute, mountPoint, configData, zfsDiskIDs)
 	if err != nil {
 		return fmt.Errorf("failed to create ZFS pool: %w", err)
 	}
@@ -103,13 +111,13 @@ func Run() error {
 	log.Printf("Created ZFS Root Pool: %s\n", zfsPoolRootName)
 
 	// Create the ZFS datasets for the boot pool.
-	err = createZFSBootDatasets(*execute, zfsPoolRootName, mountPoint, configData)
+	err = createZFSBootDatasets(*execute, zfsPoolBootName, mountPoint)
 	if err != nil {
 		return fmt.Errorf("failed to create ZFS boot datasets on pool %s: %w", zfsPoolBootName, err)
 	}
 
 	// Create the ZFS datasets for the root pool.
-	err = createZFSRootDatasets(*execute, zfsPoolRootName, mountPoint, configData)
+	err = createZFSRootDatasets(*execute, zfsPoolRootName, configData)
 	if err != nil {
 		return fmt.Errorf("failed to create ZFS root datasets on pool %s: %w", zfsPoolRootName, err)
 	}

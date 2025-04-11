@@ -4,6 +4,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -136,6 +137,9 @@ func ReadConfig(configFile string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config file %s: %w", cleanedPath, err)
 	}
 
+	// Apply default values that weren't specified in the YAML
+	applyDefaults(&config)
+
 	/*
 	 Validation
 	*/
@@ -157,6 +161,18 @@ func ReadConfig(configFile string) (*Config, error) {
 	return &config, nil
 }
 
+// applyDefaults sets default values for fields that weren't specified in the YAML
+func applyDefaults(config *Config) {
+
+	// Apply defaults for unspecified fields.
+
+	// ZFS ashift
+	if config.ZFS.Ashift == 0 {
+		config.ZFS.Ashift = 12
+		log.Printf("Warning: ZFS ashift value not specified, defaulting to 12 (4K sectors)")
+	}
+}
+
 // validateConfig performs custom validation checks not covered by struct tags.
 func validateConfig(configData *Config) error {
 
@@ -170,6 +186,11 @@ func validateConfig(configData *Config) error {
 		if !utils.IsValidBlockDevice(rootDisk) {
 			return fmt.Errorf("invalid ZFS block device: %s", rootDisk)
 		}
+	}
+
+	// ZFS ashift validation.
+	if configData.ZFS.Ashift < 9 || configData.ZFS.Ashift > 16 {
+		return fmt.Errorf("invalid ashift value: %d. Must be between 9 and 16.", configData.ZFS.Ashift)
 	}
 
 	// If there is more than disk, are we mirroring or striping the boot and root pools?

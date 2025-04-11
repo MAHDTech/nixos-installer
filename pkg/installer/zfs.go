@@ -3,6 +3,7 @@ package installer
 import (
 	"fmt"
 	"log"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -20,10 +21,12 @@ func createZFSPool(
 ) (zfsBootPoolName string, zfsRootPoolName string, err error) {
 	log.Println("--- Creating ZFS Pools ---")
 
+	var zfsBootPoolArgs []string
+	var zfsRootPoolArgs []string
+
 	/*
-	 --- ZFS Common Pool Configuration ---
+	 --- ZFS Boot Pool Configuration ---
 	*/
-	ashift := configData.ZFS.Ashift
 
 	// Create boot pool
 	zfsBootPoolName = configData.ZFS.BootPool.Name
@@ -36,67 +39,89 @@ func createZFSPool(
 	// Prepare boot partition IDs
 	bootPartitions := []string{}
 	for _, disk := range zfsBootPoolDisks {
-		// The boot partition is always 1
-		bootPartitions = append(bootPartitions, fmt.Sprintf("%s1", disk))
+		// Check if it's an NVMe disk (contains "nvme" in the path)
+		if strings.Contains(disk, "nvme") {
+			// NVMe disks use -partN format
+			bootPartitions = append(bootPartitions, fmt.Sprintf("%s-part1", disk))
+		} else {
+			// Traditional SATA/SCSI disks might just append the number
+			bootPartitions = append(bootPartitions, fmt.Sprintf("%s1", disk))
+		}
 	}
 
-	log.Printf("Creating ZFS boot pool: %s\n", zfsBootPoolName)
+	log.Printf("Creating ZFS boot pool %s on partition %v\n", zfsBootPoolName, bootPartitions)
 
 	// Prepare common boot pool arguments
-	bootPoolArgs := []string{
+	zfsBootPoolArgs = []string{
 		"create",
 		"-f",
-		fmt.Sprintf("-o ashift=%d", ashift),
-		"-o autotrim=on",
-		"-O acltype=posixacl",
-		"-O relatime=on",
-		"-O xattr=sa",
-		"-O dnodesize=auto",
-		"-O normalization=formD",
-		"-O mountpoint=none",
-		"-O canmount=off",
-		"-O devices=off",
+		"-o", fmt.Sprintf("ashift=%d", configData.ZFS.Ashift),
+		"-o", "autotrim=on",
+		"-O", "acltype=posixacl",
+		"-O", "relatime=on",
+		"-O", "xattr=sa",
+		"-O", "dnodesize=auto",
+		"-O", "normalization=formD",
+		"-O", "mountpoint=none",
+		"-O", "canmount=off",
+		"-O", "devices=off",
 	}
 
 	// Add compression if enabled
 	if configData.ZFS.BootPool.Compression {
-		bootPoolArgs = append(bootPoolArgs, "-O compression=zstd")
+		zfsBootPoolArgs = append(zfsBootPoolArgs, "-O", "compression=zstd")
 	} else {
-		bootPoolArgs = append(bootPoolArgs, "-O compression=off")
+		zfsBootPoolArgs = append(zfsBootPoolArgs, "-O", "compression=off")
 	}
 
 	// Boot pool specific options for bootloader compatibility
-	bootPoolArgs = append(bootPoolArgs,
-		"-O encryption=off",
-		"-O version=28",
-		"-O feature@encryption=disabled",
-		"-O feature@project_quota=disabled",
-		"-O feature@userobj_accounting=disabled",
-		"-O feature@bookmark_v2=disabled",
-		"-O feature@redaction_bookmarks=disabled",
-		"-O feature@redacted_datasets=disabled",
-		"-O feature@bookmark_written=disabled",
-		"-O feature@log_spacemap=disabled",
-		"-O feature@large_dnode=disabled",
-		"-O feature@sha512=disabled",
-		"-O feature@skein=disabled",
-		"-O feature@edonr=disabled",
+	zfsBootPoolArgs = append(zfsBootPoolArgs,
+		"-O", "encryption=off",
+		"-o", "feature@encryption=disabled",
+		"-o", "feature@project_quota=disabled",
+		"-o", "feature@userobj_accounting=disabled",
+		"-o", "feature@bookmark_v2=disabled",
+		"-o", "feature@redaction_bookmarks=disabled",
+		"-o", "feature@redacted_datasets=disabled",
+		"-o", "feature@bookmark_written=disabled",
+		"-o", "feature@log_spacemap=disabled",
+		"-o", "feature@sha512=disabled",
+		"-o", "feature@skein=disabled",
+		"-o", "feature@edonr=disabled",
 		zfsBootPoolName,
+	)
+
+	// Set the altroot temporary mountpoint for the install.
+	zfsBootPoolArgs = append(zfsBootPoolArgs,
+		"-R", mountPoint,
 	)
 
 	// Handle pool topology (mirror, stripe, or single disk)
 	if configData.ZFS.BootPool.Mirror && len(bootPartitions) > 1 {
-		bootPoolArgs = append(bootPoolArgs, "mirror")
-		bootPoolArgs = append(bootPoolArgs, bootPartitions...)
+		zfsBootPoolArgs = append(zfsBootPoolArgs, "mirror")
+		zfsBootPoolArgs = append(zfsBootPoolArgs, bootPartitions...)
 		log.Println("Creating mirrored boot pool")
 	} else if configData.ZFS.BootPool.Stripe && len(bootPartitions) > 1 {
 		// For stripe, just add all partitions (no 'stripe' keyword in zpool create)
-		bootPoolArgs = append(bootPoolArgs, bootPartitions...)
+		zfsBootPoolArgs = append(zfsBootPoolArgs, bootPartitions...)
 		log.Println("Creating striped boot pool")
 	} else {
 		// For single disk or fallback, just use the first partition
-		bootPoolArgs = append(bootPoolArgs, bootPartitions[0])
+		zfsBootPoolArgs = append(zfsBootPoolArgs, bootPartitions[0])
 		log.Println("Creating single-disk boot pool")
+	}
+
+	// DEBUG: Print the boot pool arguments
+	log.Printf("Boot pool arguments: %v\n", zfsBootPoolArgs)
+
+	// Make sure the boot partitions exist before creating the pool.
+	if execute {
+		for _, part := range bootPartitions {
+			if _, err := os.Stat(part); err != nil {
+				log.Printf("Warning: Boot partition path doesn't exist: %s", part)
+				// Could even try alternate format here as last resort
+			}
+		}
 	}
 
 	// Execute boot pool creation command
@@ -104,7 +129,7 @@ func createZFSPool(
 		execute,
 		utils.ModeNormal,
 		"zpool",
-		bootPoolArgs...,
+		zfsBootPoolArgs...,
 	)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create ZFS boot pool %s: %w", zfsBootPoolName, err)
@@ -120,49 +145,61 @@ func createZFSPool(
 	if configData.ZFS.RootPool.Mirror && len(zfsDiskIDs) > 1 {
 		poolTopology = "mirror"
 	} else if configData.ZFS.RootPool.Stripe && len(zfsDiskIDs) > 1 {
-		poolTopology = "stripe" // This is just for logging - zpool doesn't use "stripe" keyword
+		poolTopology = "stripe"
 	} else {
 		poolTopology = "single"
 	}
 
-	log.Printf("Creating ZFS root pool: %s using type: '%s'\n", zfsRootPoolName, poolTopology)
+	// Prepare the root partition paths using the same NVMe vs traditional disk logic
+	rootPartitions := []string{}
+	for _, disk := range configData.ZFS.Disks {
+		// Check if it's an NVMe disk (contains "nvme" in the path)
+		if strings.Contains(disk, "nvme") {
+			// NVMe disks use -partN format
+			rootPartitions = append(rootPartitions, fmt.Sprintf("%s-part2", disk))
+		} else {
+			// Traditional SATA/SCSI disks might just append the number
+			rootPartitions = append(rootPartitions, fmt.Sprintf("%s2", disk))
+		}
+	}
+
+	log.Printf("Creating ZFS root pool %s using type %s on partition %v\n", zfsRootPoolName, poolTopology, rootPartitions)
 
 	// Root pool base arguments - optimized for data storage
-	zfsRootPoolArgs := []string{
+	zfsRootPoolArgs = []string{
 		"create",
 		"-f",
-		fmt.Sprintf("-o ashift=%d", ashift),
-		"-o autotrim=on",
-		"-O acltype=posixacl",
-		"-O relatime=on",
-		"-O xattr=sa",
-		"-O dnodesize=auto",
-		"-O normalization=formD",
-		"-O mountpoint=none",
-		"-O canmount=off",
-		"-O devices=off",
+		"-o", fmt.Sprintf("ashift=%d", configData.ZFS.Ashift),
+		"-o", "autotrim=on",
+		"-O", "acltype=posixacl",
+		"-O", "relatime=on",
+		"-O", "xattr=sa",
+		"-O", "dnodesize=auto",
+		"-O", "normalization=formD",
+		"-O", "mountpoint=none",
+		"-O", "canmount=off",
+		"-O", "devices=off",
 	}
 
 	// Add compression if enabled (default is true)
 	if configData.ZFS.RootPool.Compression {
-		zfsRootPoolArgs = append(zfsRootPoolArgs, "-O compression=zstd")
+		zfsRootPoolArgs = append(zfsRootPoolArgs, "-O", "compression=zstd")
 	} else {
-		zfsRootPoolArgs = append(zfsRootPoolArgs, "-O compression=off")
+		zfsRootPoolArgs = append(zfsRootPoolArgs, "-O", "compression=off")
 	}
 
-	// Add mountpoint and altroot settings
+	// Set the altroot temporary mountpoint for the install.
 	zfsRootPoolArgs = append(zfsRootPoolArgs,
-		fmt.Sprintf("-O mountpoint=%s", mountPoint),
-		fmt.Sprintf("-R %s", mountPoint),
+		"-R", mountPoint,
 	)
 
 	// Add encryption options if enabled
 	if configData.ZFS.RootPool.Encryption {
 		log.Println("ZFS Encryption is enabled for root pool.")
 		zfsRootPoolArgs = append(zfsRootPoolArgs,
-			"-O encryption=aes-256-gcm",
-			"-O keylocation=prompt",
-			"-O keyformat=passphrase",
+			"-O", "encryption=aes-256-gcm",
+			"-O", "keylocation=prompt",
+			"-O", "keyformat=passphrase",
 		)
 	} else {
 		log.Println("ZFS Encryption is disabled for root pool.")
@@ -172,14 +209,24 @@ func createZFSPool(
 	zfsRootPoolArgs = append(zfsRootPoolArgs, zfsRootPoolName)
 
 	// Handle pool topology for root pool
-	if poolTopology == "mirror" && len(zfsDiskIDs) > 1 {
+	if configData.ZFS.RootPool.Mirror && len(rootPartitions) > 1 {
 		zfsRootPoolArgs = append(zfsRootPoolArgs, "mirror")
+		zfsRootPoolArgs = append(zfsRootPoolArgs, rootPartitions...)
+		log.Println("Creating mirrored root pool")
+	} else if configData.ZFS.RootPool.Stripe && len(rootPartitions) > 1 {
+		// For stripe, just add all partitions (no 'stripe' keyword in zpool create)
+		zfsRootPoolArgs = append(zfsRootPoolArgs, rootPartitions...)
+		log.Println("Creating striped root pool")
+	} else {
+		// For single disk or fallback, just use the first partition
+		zfsRootPoolArgs = append(zfsRootPoolArgs, rootPartitions[0])
+		log.Println("Creating single-disk root pool")
 	}
 
-	// Add the disk IDs (passed as []string)
-	zfsRootPoolArgs = append(zfsRootPoolArgs, zfsDiskIDs...)
+	// DEBUG: Print the root pool arguments
+	log.Printf("Root pool arguments: %v\n", zfsRootPoolArgs)
 
-	// Execute the zpool create command
+	// Execute the root pool creation command
 	_, err = utils.Execute(
 		execute,
 		utils.ModeNormal,
@@ -204,22 +251,24 @@ func createZFSBootDatasets(
 	execute bool,
 	zfsPoolBootName string,
 	mountPoint string,
-	configData *config.Config,
 ) error {
-	log.Println("--- Creating ZFS Boot Datasets on pool %s ---", zfsPoolBootName)
+
+	var err error
+
+	log.Printf("--- Creating ZFS Boot Datasets on pool %s ---", zfsPoolBootName)
 
 	// --- Boot Dataset ---
 	zfsDatasetPathBoot := path.Join(zfsPoolBootName, zfsDatasetBoot)
 	zfsDatasetMountPointBoot := path.Join(mountPoint, "boot")
 
 	log.Printf("Creating ZFS dataset: %s\n", zfsDatasetPathBoot)
-	_, err := utils.Execute(
+	_, err = utils.Execute(
 		execute,
 		utils.ModeNormal,
 		"zfs",
 		"create",
-		"-o canmount=noauto",  // Must be mounted manually
-		"-o mountpoint=/boot", // Set mountpoint destination on the NixOS system
+		"-o", "canmount=on",
+		"-o", "mountpoint=/boot",
 		zfsDatasetPathBoot,
 	)
 	if err != nil {
@@ -235,10 +284,9 @@ func createZFSBootDatasets(
 	_, err = utils.Execute(
 		execute,
 		utils.ModeNormal,
+		"zfs",
 		"mount",
-		"-t zfs",
 		zfsDatasetPathBoot,
-		zfsDatasetMountPointBoot,
 	)
 	if err != nil {
 		return fmt.Errorf(
@@ -263,13 +311,14 @@ func createZFSBootDatasets(
 		_, errUnmount := utils.Execute(
 			execute,
 			utils.ModeNormal,
-			"umount",
-			zfsDatasetMountPointBoot,
+			"zfs",
+			"unmount",
+			zfsDatasetPathBoot,
 		)
 		if errUnmount != nil {
 			log.Printf(
 				"Warning! Failed to unmount temporary root mount %s: %v\n",
-				zfsDatasetMountPointBoot,
+				zfsDatasetPathBoot,
 				errUnmount,
 			)
 		}
@@ -281,8 +330,9 @@ func createZFSBootDatasets(
 	_, err = utils.Execute(
 		execute,
 		utils.ModeNormal,
-		"umount",
-		zfsDatasetMountPointBoot,
+		"zfs",
+		"unmount",
+		zfsDatasetPathBoot,
 	)
 	if err != nil {
 		// Log or handle unmount error? For now, just return it.
@@ -298,22 +348,24 @@ func createZFSBootDatasets(
 func createZFSRootDatasets(
 	execute bool,
 	zfsPoolRootName string,
-	mountPoint string,
 	configData *config.Config,
 ) error {
-	log.Println("--- Creating ZFS Root Datasets on pool %s ---", zfsPoolRootName)
+
+	var err error
+
+	log.Printf("--- Creating ZFS Root Datasets on pool %s ---", zfsPoolRootName)
 
 	// --- Root Dataset ---
 	zfsDatasetPathRoot := path.Join(zfsPoolRootName, zfsDatasetRoot)
 
 	log.Printf("Creating ZFS dataset: %s\n", zfsDatasetPathRoot)
-	_, err := utils.Execute(
+	_, err = utils.Execute(
 		execute,
 		utils.ModeNormal,
 		"zfs",
 		"create",
-		"-o canmount=noauto", // Must be mounted manually
-		"-o mountpoint=/",    // Set mountpoint destination on the NixOS system
+		"-o", "canmount=on",
+		"-o", "mountpoint=/",
 		zfsDatasetPathRoot,
 	)
 	if err != nil {
@@ -328,7 +380,8 @@ func createZFSRootDatasets(
 		utils.ModeNormal,
 		"zfs",
 		"create",
-		"-o mountpoint=/home",
+		"-o", "canmount=on",
+		"-o", "mountpoint=/home",
 		zfsDatasetPathHome,
 	)
 	if err != nil {
@@ -343,8 +396,9 @@ func createZFSRootDatasets(
 		utils.ModeNormal,
 		"zfs",
 		"create",
-		"-o mountpoint=/nix",
-		"-o atime=off", // Optimization for Nix store
+		"-o", "canmount=on",
+		"-o", "mountpoint=/nix",
+		"-o", "atime=off", // Optimization for Nix store
 		zfsDatasetPathNix,
 	)
 	if err != nil {
@@ -368,53 +422,106 @@ func createZFSRootDatasets(
 		)
 		if err != nil {
 			log.Printf(
-				"Warning: Could not determine page size via getconf: %v. Defaulting to 4k for swap volblocksize.",
+				"Warning: Could not determine page size via getconf: %v. Defaulting to 16k for swap volblocksize.",
 				err,
 			)
-			pageSize = "4k"
+			pageSize = "16384"
 		} else {
 			pageSize = strings.TrimSpace(pageSize)
 		}
 
-		if pageSize == "" { // Double check after trim / potential error
+		// Make sure the page size is not empty and at least 16k
+		if pageSize == "" || pageSize < "16384" {
 			log.Println(
-				"Warning: Could not determine page size, defaulting to 4k for swap volblocksize.",
+				"Warning: Could not determine page size or it was less than 16k, defaulting to 16k for swap volblocksize.",
 			)
-			pageSize = "4k"
+			pageSize = "16384"
 		}
 
+		// Create the swap ZFS volume
 		_, err = utils.Execute(
 			execute,
 			utils.ModeNormal,
 			"zfs",
 			"create",
-			fmt.Sprintf("-V %s", configData.Swap.Size),
-			fmt.Sprintf("-b %s", pageSize),
-			"-o compression=zle", // Different compression for swap
-			"-o logbias=throughput",
-			"-o sync=always",
-			"-o primarycache=metadata",
-			"-o secondarycache=none",
-			"-o com.sun:auto-snapshot=false", // Don't snapshot swap
+			"-V", fmt.Sprintf("%s", configData.Swap.Size),
+			"-b", fmt.Sprintf("%s", pageSize),
+			"-o", "compression=zle", // Different compression for swap
+			"-o", "logbias=throughput",
+			"-o", "sync=always",
+			"-o", "primarycache=metadata",
+			"-o", "secondarycache=none",
+			"-o", "com.sun:auto-snapshot=false", // Don't snapshot swap
 			zfsDatasetPathSwap,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create swap ZFS volume %s: %w", zfsDatasetPathSwap, err)
 		}
 
-		log.Printf("Formatting swap volume: /dev/zvol/%s\n", zfsDatasetPathSwap)
-		_, err = utils.Execute(
-			execute,
-			utils.ModeNormal,
-			"mkswap",
-			fmt.Sprintf("/dev/zvol/%s", zfsDatasetPathSwap),
-		)
-		if err != nil {
-			return fmt.Errorf(
-				"failed to format swap volume /dev/zvol/%s: %w",
-				zfsDatasetPathSwap,
-				err,
+		// Retry logic for the swap device to appear
+		if execute {
+			// Wait for zvol device to appear
+			swapDevicePath := fmt.Sprintf("/dev/zvol/%s", zfsDatasetPathSwap)
+			log.Printf("Waiting for swap device to appear at %s", swapDevicePath)
+
+			// Try a few times with exponential backoff
+			for attempt := 1; attempt <= 5; attempt++ {
+				if _, err := os.Stat(swapDevicePath); err == nil {
+					log.Printf("Swap device found after %d attempts", attempt)
+					break
+				}
+
+				// Trigger udev to reload devices
+				_, _ = utils.Execute(execute, utils.ModeNormal, "udevadm", "trigger")
+				_, _ = utils.Execute(execute, utils.ModeNormal, "udevadm", "settle")
+
+				// Check if the directory exists, create if needed
+				dir := path.Dir(swapDevicePath)
+				if _, err := os.Stat(dir); os.IsNotExist(err) {
+					log.Printf("Creating directory: %s", dir)
+					if err := os.MkdirAll(dir, 0755); err != nil {
+						log.Printf("Warning: Failed to create directory %s: %v", dir, err)
+					}
+				}
+
+				waitTime := time.Duration(attempt*2) * time.Second
+				log.Printf("Waiting %v seconds for swap device (attempt %d/5)...", waitTime.Seconds(), attempt)
+				time.Sleep(waitTime)
+			}
+
+			// Final verification
+			if _, err := os.Stat(swapDevicePath); os.IsNotExist(err) {
+				// Try alternative paths as fallback
+				alternativePaths := []string{
+					fmt.Sprintf("/dev/zd0"),                            // Sometimes used for first zvol
+					fmt.Sprintf("/dev/%s/%s", zfsPoolRootName, "swap"), // Alternative path format
+				}
+
+				for _, altPath := range alternativePaths {
+					log.Printf("Checking alternative swap path: %s", altPath)
+					if _, err := os.Stat(altPath); err == nil {
+						swapDevicePath = altPath
+						log.Printf("Using alternative swap device path: %s", swapDevicePath)
+						break
+					}
+				}
+			}
+
+			// Then format swap using the confirmed path
+			log.Printf("Formatting swap volume: %s\n", swapDevicePath)
+			_, err = utils.Execute(
+				execute,
+				utils.ModeNormal,
+				"mkswap",
+				swapDevicePath,
 			)
+			if err != nil {
+				return fmt.Errorf(
+					"failed to format swap volume %s: %w",
+					swapDevicePath,
+					err,
+				)
+			}
 		}
 	} else {
 		log.Println("Skipping swap dataset creation as it is disabled.")
@@ -428,8 +535,9 @@ func createZFSRootDatasets(
 		utils.ModeNormal,
 		"zfs",
 		"create",
-		"-o mountpoint=/tmp",
-		"-o com.sun:auto-snapshot=false",
+		"-o", "canmount=on",
+		"-o", "mountpoint=/tmp",
+		"-o", "com.sun:auto-snapshot=false",
 		zfsDatasetPathTmp,
 	)
 	if err != nil {
@@ -444,8 +552,8 @@ func createZFSRootDatasets(
 		utils.ModeNormal,
 		"zfs",
 		"create",
-		"-o mountpoint=/var",
-		"-o canmount=off", // Children will be mounted
+		"-o", "canmount=on",
+		"-o", "mountpoint=/var",
 		zfsDatasetPathVar,
 	)
 	if err != nil {
@@ -460,8 +568,9 @@ func createZFSRootDatasets(
 		utils.ModeNormal,
 		"zfs",
 		"create",
-		"-o mountpoint=/var/lib",
-		"-o com.sun:auto-snapshot=false",
+		"-o", "canmount=on",
+		"-o", "mountpoint=/var/lib",
+		"-o", "com.sun:auto-snapshot=false",
 		zfsDatasetPathLib,
 	)
 	if err != nil {
@@ -476,8 +585,9 @@ func createZFSRootDatasets(
 		utils.ModeNormal,
 		"zfs",
 		"create",
-		"-o mountpoint=/var/lib/docker",
-		"-o com.sun:auto-snapshot=false",
+		"-o", "canmount=on",
+		"-o", "mountpoint=/var/lib/docker",
+		"-o", "com.sun:auto-snapshot=false",
 		zfsDatasetPathDocker,
 	)
 	if err != nil {
@@ -492,7 +602,9 @@ func createZFSRootDatasets(
 		utils.ModeNormal,
 		"zfs",
 		"create",
-		"-o mountpoint=/var/lib/containers",
+		"-o", "canmount=on",
+		"-o", "mountpoint=/var/lib/containers",
+		"-o", "com.sun:auto-snapshot=false",
 		zfsDatasetPathContainers,
 	)
 	if err != nil {
