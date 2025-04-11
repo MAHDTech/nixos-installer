@@ -279,7 +279,7 @@ func createZFSBootDatasets(
 		return fmt.Errorf("failed to mount boot filesystem: %w", err)
 	}
 
-	// Set the bootfs property
+	// Set the bootfs property on the boot pool
 	log.Printf("Setting bootfs property on %s to %s.\n", zfsPoolBootName, zfsDatasetPathBoot)
 	_, err = utils.Execute(
 		execute,
@@ -339,6 +339,41 @@ func createZFSRootDatasets(
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create root ZFS dataset %s: %w", zfsDatasetPathRoot, err)
+	}
+
+	// Mount the root dataset to set bootfs property
+	err = mountZFSDataset(execute, zfsDatasetPathRoot)
+	if err != nil {
+		return fmt.Errorf("failed to mount root filesystem: %w", err)
+	}
+
+	// Set the bootfs property on the root pool
+	log.Printf("Setting bootfs property on %s to %s.\n", zfsPoolRootName, zfsDatasetPathRoot)
+	_, err = utils.Execute(
+		execute,
+		utils.ModeNormal,
+		"zpool",
+		"set",
+		fmt.Sprintf("bootfs=%s", zfsDatasetPathRoot),
+		zfsPoolRootName,
+	)
+	if err != nil {
+		// Attempt to unmount before returning the error
+		_, errUnmount := utils.Execute(
+			execute,
+			utils.ModeNormal,
+			"zfs",
+			"unmount",
+			zfsDatasetPathRoot,
+		)
+		if errUnmount != nil {
+			log.Printf(
+				"Warning! Failed to unmount temporary root mount %s: %v\n",
+				zfsDatasetPathRoot,
+				errUnmount,
+			)
+		}
+		return fmt.Errorf("failed to set bootfs property on %s: %w", zfsPoolRootName, err)
 	}
 
 	// --- Home Dataset ---
