@@ -250,7 +250,6 @@ func createZFSPool(
 func createZFSBootDatasets(
 	execute bool,
 	zfsPoolBootName string,
-	mountPoint string,
 ) error {
 
 	var err error
@@ -414,8 +413,10 @@ func createZFSRootDatasets(
 			utils.ModeNormal,
 			"zfs",
 			"create",
-			"-V", fmt.Sprintf("%s", configData.Swap.Size),
-			"-b", fmt.Sprintf("%s", pageSize),
+			"-V",
+			configData.Swap.Size,
+			"-b",
+			pageSize,
 			"-o", "compression=zle", // Different compression for swap
 			"-o", "logbias=throughput",
 			"-o", "sync=always",
@@ -463,7 +464,7 @@ func createZFSRootDatasets(
 			if _, err := os.Stat(swapDevicePath); os.IsNotExist(err) {
 				// Try alternative paths as fallback
 				alternativePaths := []string{
-					fmt.Sprintf("/dev/zd0"),                            // Sometimes used for first zvol
+					"/dev/zd0", // Sometimes used for first zvol
 					fmt.Sprintf("/dev/%s/%s", zfsPoolRootName, "swap"), // Alternative path format
 				}
 

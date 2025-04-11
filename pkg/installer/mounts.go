@@ -115,7 +115,6 @@ func mountFileSystems(
 
 	// 7. Mount the var dataset to the configured altroot
 	//    Example: /mnt/nixos + "/var"
-	//    This dataset has canmount=off, so we mount the children datasets.
 	err = mountZFSDataset(execute, zfsDatasetPathVar)
 	if err != nil {
 		return fmt.Errorf("failed to mount var filesystem: %w", err)

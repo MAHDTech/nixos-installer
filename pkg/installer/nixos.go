@@ -20,6 +20,7 @@ func generateNixOSConfig(execute bool, mountPoint string) error {
 		utils.ModeNormal,
 		"nixos-generate-config",
 		"--root",
+		"--force",
 		mountPoint,
 	)
 	if err != nil {

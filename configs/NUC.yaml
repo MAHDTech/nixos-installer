@@ -35,7 +35,7 @@ zfs:
   root:
     name: zpool
     compression: true
-    encryption: true
+    encryption: false
     mirror: false
     stripe: false
 
@@ -45,5 +45,5 @@ zfs:
 
 # Settings for the swap partition.
 swap:
-  enabled: true
+  enabled: false
   size: 69GiB

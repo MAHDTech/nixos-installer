@@ -115,7 +115,7 @@ func unmountDisks(execute bool, configData *config.Config) error {
 	var allMountPoints []string
 
 	// Get all block devices as JSON
-	// always run this even in dry run mode
+	// Need to always run this even in dry-run mode
 	blockDevicesJSON, err := utils.Execute(
 		true,
 		utils.ModeStdOut,
@@ -163,7 +163,7 @@ func unmountDisks(execute bool, configData *config.Config) error {
 		}
 	}
 
-	// If we found mountpoints, unmount them
+	// If mountpoints have been found, unmount them
 	if len(allMountPoints) > 0 {
 		log.Printf("Found %d mountpoints to unmount", len(allMountPoints))
 		err = utils.UnmountAll(execute, allMountPoints)

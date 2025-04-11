@@ -12,9 +12,6 @@ import (
 // Run function orchestrates the NixOS installation process.
 // Returns an error if any step of the installation fails.
 func Run() error {
-
-	log.Println("### Starting NixOS installation process ###")
-
 	/*
 	 --- Configuration and Flags ---
 	*/
@@ -26,12 +23,12 @@ func Run() error {
 	execute := flag.Bool(
 		"run",
 		false,
-		"Execute mode. (default is false which only dry runs commands)",
+		"Execute mode. (defaults to false which will run in dry-run mode.)",
 	)
 	executeInstall := flag.Bool(
 		"install",
 		false,
-		"Automatically install NixOS. (default is false which only generates the NixOS configuration)",
+		"Enable to automatically install NixOS. (defaults to false which only generates the NixOS configuration)",
 	)
 	flag.Parse()
 
@@ -111,7 +108,7 @@ func Run() error {
 	log.Printf("Created ZFS Root Pool: %s\n", zfsPoolRootName)
 
 	// Create the ZFS datasets for the boot pool.
-	err = createZFSBootDatasets(*execute, zfsPoolBootName, mountPoint)
+	err = createZFSBootDatasets(*execute, zfsPoolBootName)
 	if err != nil {
 		return fmt.Errorf("failed to create ZFS boot datasets on pool %s: %w", zfsPoolBootName, err)
 	}
