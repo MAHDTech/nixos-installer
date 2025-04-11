@@ -159,7 +159,7 @@ func installNixOS(
 		fmt.Println("\t- You can edit the configuration files before running nixos-install.")
 		fmt.Println("\t- Re-run nixos-install if you make further changes before rebooting.")
 		if configData.NixOS.Config.Enabled {
-			fmt.Printf("\t- TIP: If using the NixOS config partition, consider copying your flake source to %s\n", mountPointNixOSConfig)
+			fmt.Printf("\t- TIP: If using the NixOS config partition, consider copying your flake source folder into %s\n", mountPointNixOSConfig)
 		}
 		fmt.Println("\t- REMINDER: Double-check disk IDs in hardware-configuration.nix before the final install!")
 		fmt.Println("")
