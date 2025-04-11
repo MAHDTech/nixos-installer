@@ -259,7 +259,6 @@ func createZFSBootDatasets(
 
 	// --- Boot Dataset ---
 	zfsDatasetPathBoot := path.Join(zfsPoolBootName, zfsDatasetBoot)
-	zfsDatasetMountPointBoot := path.Join(mountPoint, "boot")
 
 	log.Printf("Creating ZFS dataset: %s\n", zfsDatasetPathBoot)
 	_, err = utils.Execute(
@@ -275,25 +274,10 @@ func createZFSBootDatasets(
 		return fmt.Errorf("failed to create boot ZFS dataset %s: %w", zfsDatasetPathBoot, err)
 	}
 
-	// Mount the boot dataset temporarily to set bootfs property
-	log.Printf(
-		"Temporarily mounting %s to %s for bootfs setting.\n",
-		zfsDatasetPathBoot,
-		zfsDatasetMountPointBoot,
-	)
-	_, err = utils.Execute(
-		execute,
-		utils.ModeNormal,
-		"zfs",
-		"mount",
-		zfsDatasetPathBoot,
-	)
+	// Mount the boot dataset to set bootfs property
+	err = mountZFSDataset(execute, zfsDatasetPathBoot)
 	if err != nil {
-		return fmt.Errorf(
-			"failed to temporarily mount boot dataset %s: %w",
-			zfsDatasetPathBoot,
-			err,
-		)
+		return fmt.Errorf("failed to mount boot filesystem: %w", err)
 	}
 
 	// Set the bootfs property
@@ -323,20 +307,6 @@ func createZFSBootDatasets(
 			)
 		}
 		return fmt.Errorf("failed to set bootfs property on %s: %w", zfsPoolBootName, err)
-	}
-
-	// Unmount the root dataset
-	log.Printf("Unmounting %s\n", zfsDatasetMountPointBoot)
-	_, err = utils.Execute(
-		execute,
-		utils.ModeNormal,
-		"zfs",
-		"unmount",
-		zfsDatasetPathBoot,
-	)
-	if err != nil {
-		// Log or handle unmount error? For now, just return it.
-		return fmt.Errorf("failed to unmount temporary root mount %s: %w", mountPoint, err)
 	}
 
 	log.Println("--- ZFS Boot Dataset Creation Complete ---")
