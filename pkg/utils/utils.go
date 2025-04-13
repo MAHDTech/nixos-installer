@@ -2,78 +2,102 @@
 package utils
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
-
-	validate "github.com/MAHDTech/nixos-installer/pkg/validate"
 )
+
+// ExecuteMode defines how the Execute function handles command execution
+type ExecuteMode int
+
+const (
+	// ModeNormal runs the command and returns any errors
+	ModeNormal ExecuteMode = iota
+	// ModeSilent runs the command and only logs errors without returning them
+	ModeSilent
+	// ModeStdOut captures and returns stdout from the command
+	ModeStdOut
+)
+
+// Execute function will execute a command with the specified mode.
+// It returns stdout (if requested) and an error if the command cannot be found or fails to run.
+func Execute(
+	execute bool,
+	mode ExecuteMode,
+	cmdName string,
+	args ...string,
+) (string, error) {
+
+	// Verify the command exists in PATH
+	path, err := exec.LookPath(cmdName)
+	if err != nil {
+		return "", fmt.Errorf("command not found %s: %w", cmdName, err)
+	}
+
+	cmd := exec.Command(path, args...) // #nosec G204
+
+	// Configure command IO based on mode
+	if mode == ModeStdOut {
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+	} else {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+	}
+
+	log.Printf("%s: %s\n",
+		map[bool]string{true: "EXECUTING", false: "DRY RUN"}[execute],
+		cmd.String(),
+	)
+
+	// Skip execution if we're in dry run mode
+	if !execute {
+		return "", nil
+	}
+
+	// Execute based on the selected mode
+	switch mode {
+
+	case ModeNormal:
+		if err := cmd.Run(); err != nil {
+			return "", fmt.Errorf("failed to execute command %s: %w", cmd.String(), err)
+		}
+		return "", nil
+
+	case ModeSilent:
+		if err := cmd.Run(); err != nil {
+			log.Printf("Command failed (but ignored): %s, Error: %s", cmd.String(), err)
+		}
+		return "", nil
+
+	case ModeStdOut:
+		output, err := cmd.Output() // Capture the Stdout
+		if err != nil {
+			return "", fmt.Errorf(
+				"failed to execute command %s and capture output: %w",
+				cmd.String(),
+				err,
+			)
+		}
+		return string(output), nil
+	}
+
+	// This should never happen if the mode is valid
+	return "", fmt.Errorf("invalid execution mode: %d", mode)
+}
 
 // IsValidBlockDevice function will return true if the device is a valid block device.
 func IsValidBlockDevice(device string) bool {
 	// Check if the device exists
-	_, err := os.Stat(device)
-	if os.IsNotExist(err) {
-		return false
-	}
-
-	// Check if it's a block device
-	info, err := os.Stat(device)
+	deviceInfo, err := os.Stat(device)
 	if err != nil {
 		return false
 	}
 
-	// Use the mode bits to determine if it's a block device
-	return (info.Mode() & os.ModeDevice) == os.ModeDevice
-
-}
-
-// Execute function will execute a command and check for errors.
-func Execute(execute bool, cmdName string, args ...string) {
-	cmd := exec.Command(cmdName, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-
-	if execute {
-		validate.Panic(cmd.Run())
-	} else {
-		log.Printf("DRY RUN: Would run %s\n", cmd.String())
-	}
-}
-
-// ExecuteSilent function will execute a command and ignore any errors.
-func ExecuteSilent(execute bool, cmdName string, args ...string) {
-	cmd := exec.Command(cmdName, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-
-	if execute {
-		err := cmd.Run()
-		if err != nil {
-			log.Printf("Command failed, but continuing: %s", err)
-		}
-	} else {
-		log.Printf("DRY RUN: Would run %s\n", cmd.String())
-	}
-}
-
-// ExecuteStdOut function will execute a command and return the stdout.
-func ExecuteStdOut(execute bool, cmdName string, args ...string) string {
-	cmd := exec.Command(cmdName, args...)
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-
-	if !execute {
-		output, err := cmd.Output()
-		validate.Error(err)
-		return string(output)
-	}
-
-	log.Printf("DRY RUN: Would run %s\n", cmd.String())
-	return ""
-
+	// Make sure the ModeDevice bit is set, but not the ModeDir or ModeRegular bits
+	return (deviceInfo.Mode() & os.ModeDevice) == os.ModeDevice
 }
 
 // FileExists function will return true if the file exists.

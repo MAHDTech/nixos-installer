@@ -42,10 +42,6 @@ jobs:
           useDaemon: true
           skipPush: false
 
-      - id: cache
-        name: Magic Nix cache
-        uses: DeterminateSystems/magic-nix-cache-action@main
-
       - id: update_nix_flake
         name: Update flake.lock
         uses: DeterminateSystems/update-flake-lock@v24
