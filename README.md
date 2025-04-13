@@ -20,7 +20,7 @@ This installs NixOS;
 3. Copy the starting example configuration file (see configs folder for more examples)
 
 ```bash
-CONFIG_FILE="/tmp/config.yaml"
+export CONFIG_FILE="/tmp/config.yaml"
 
 cp configs/example.yaml "${CONFIG_FILE}"
 ```
@@ -62,11 +62,17 @@ git clone git@github.com:MAHDTech/nixos-installer.git
 cd nixos-installer
 
 # Dry run
-sudo go run main.go \
+sudo -E go run main.go \
   -config "${CONFIG_FILE}"
 
-# Nuke all the things
-sudo go run main.go \
+# Nuke all the things but don't auto-install
+sudo -E go run main.go \
   -config "${CONFIG_FILE}" \
   -run
+
+# Nuke all the things and auto-install configured flake.
+sudo -E go run main.go \
+  -config "${CONFIG_FILE}" \
+  -run \
+  -install
 ```

@@ -1,5 +1,3 @@
-// Package utils provides utilities for the installer.
-// This package provides utilities for working with mountpoints.
 package utils
 
 import (
@@ -71,14 +69,21 @@ func GetMountpoints(deviceID string, data []byte) ([]string, error) {
 // UnmountAll function will unmount all given mountpoints.
 func UnmountAll(execute bool, mountpoints []string) error {
 
+	// Loop over each mountpoint and unmount it.
 	for _, mountpoint := range mountpoints {
-		Execute(
+		log.Printf("Unmounting %s\n", mountpoint)
+		_, err := Execute(
 			execute,
+			ModeNormal,
 			"umount",
+			"-R", // Recursive unmount
 			mountpoint,
 		)
+		if err != nil {
+			// Return immediately if any unmount fails
+			return fmt.Errorf("failed to unmount %s: %w", mountpoint, err)
+		}
 	}
-
+	// This assumes all unmounts succeeded or were in dry-run mode.
 	return nil
-
 }
