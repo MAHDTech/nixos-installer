@@ -163,7 +163,12 @@ func createZFSPool(
 		}
 	}
 
-	log.Printf("Creating ZFS root pool %s using type %s on partition %v\n", zfsRootPoolName, poolTopology, rootPartitions)
+	log.Printf(
+		"Creating ZFS root pool %s using type %s on partition %v\n",
+		zfsRootPoolName,
+		poolTopology,
+		rootPartitions,
+	)
 
 	// Root pool base arguments - optimized for data storage
 	zfsRootPoolArgs = []string{
@@ -491,7 +496,11 @@ func createZFSRootDatasets(
 				}
 
 				waitTime := time.Duration(attempt*2) * time.Second
-				log.Printf("Waiting %v seconds for swap device (attempt %d/5)...", waitTime.Seconds(), attempt)
+				log.Printf(
+					"Waiting %v seconds for swap device (attempt %d/5)...",
+					waitTime.Seconds(),
+					attempt,
+				)
 				time.Sleep(waitTime)
 			}
 
@@ -614,7 +623,11 @@ func createZFSRootDatasets(
 		zfsDatasetPathContainers,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create containers ZFS dataset %s: %w", zfsDatasetPathContainers, err)
+		return fmt.Errorf(
+			"failed to create containers ZFS dataset %s: %w",
+			zfsDatasetPathContainers,
+			err,
+		)
 	}
 
 	// Wait a bit for ZFS changes to settle

@@ -190,7 +190,10 @@ func validateConfig(configData *Config) error {
 
 	// ZFS ashift validation.
 	if configData.ZFS.Ashift < 9 || configData.ZFS.Ashift > 16 {
-		return fmt.Errorf("invalid ashift value: %d. Must be between 9 and 16.", configData.ZFS.Ashift)
+		return fmt.Errorf(
+			"invalid ashift value: %d. Must be between 9 and 16",
+			configData.ZFS.Ashift,
+		)
 	}
 
 	// If there is more than disk, are we mirroring or striping the boot and root pools?

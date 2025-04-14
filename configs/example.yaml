@@ -23,7 +23,6 @@ uefi:
 
 # Settings for the ZFS pools.
 zfs:
-
   # Boot pool settings.
   boot:
     name: bpool

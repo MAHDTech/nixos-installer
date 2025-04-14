@@ -9,11 +9,13 @@ import (
 
 // Run the NixOS Installer.
 func main() {
+
 	log.Println("Starting NixOS Installer...")
+
 	err := installer.Run()
 	if err != nil {
 		log.Fatalf("Installation failed with error: %v", err)
-	} else {
-		log.Println("Installation completed successfully!")
 	}
+
+	log.Println("Installation completed successfully!")
 }

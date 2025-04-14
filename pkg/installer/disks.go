@@ -29,12 +29,24 @@ func unmountDisks(execute bool, configData *config.Config) error {
 
 	// First try to unmount everything using Linux kernel's force unmount
 	// This is more reliable than ZFS's unmount for busy filesystems
-	forceUnmountMountpoints(execute)
+	err = forceUnmountMountpoints(execute)
+	if err != nil {
+		// Non-fatal error, just log it
+		log.Printf("Warning: Failed to force unmount mountpoints: %v", err)
+	}
 
 	log.Println("Processing ZFS Pools")
 
 	// First get a list of all pools
-	poolsOutput, err := utils.Execute(execute, utils.ModeStdOut, "zpool", "list", "-H", "-o", "name")
+	poolsOutput, err := utils.Execute(
+		execute,
+		utils.ModeStdOut,
+		"zpool",
+		"list",
+		"-H",
+		"-o",
+		"name",
+	)
 	if err == nil && poolsOutput != "" {
 		pools := strings.Split(strings.TrimSpace(poolsOutput), "\n")
 
@@ -74,13 +86,30 @@ func unmountDisks(execute bool, configData *config.Config) error {
 						continue
 					}
 					log.Printf("Unmounting dataset: %s", dataset)
-					_, unmountErr := utils.Execute(execute, utils.ModeNormal, "zfs", "unmount", dataset)
+					_, unmountErr := utils.Execute(
+						execute,
+						utils.ModeNormal,
+						"zfs",
+						"unmount",
+						dataset,
+					)
 					if unmountErr != nil {
 						log.Printf("Warning: Failed to unmount dataset %s: %v", dataset, unmountErr)
 						// Try force unmount if regular unmount fails
-						_, forceErr := utils.Execute(execute, utils.ModeNormal, "zfs", "unmount", "-f", dataset)
+						_, forceErr := utils.Execute(
+							execute,
+							utils.ModeNormal,
+							"zfs",
+							"unmount",
+							"-f",
+							dataset,
+						)
 						if forceErr != nil {
-							log.Printf("Warning: Force unmount also failed for %s: %v", dataset, forceErr)
+							log.Printf(
+								"Warning: Force unmount also failed for %s: %v",
+								dataset,
+								forceErr,
+							)
 						}
 					}
 				}
@@ -136,7 +165,11 @@ func unmountDisks(execute bool, configData *config.Config) error {
 
 		uefiMountPoints, err := utils.GetMountpoints(configData.UEFI.Disk, []byte(blockDevicesJSON))
 		if err != nil {
-			return fmt.Errorf("failed to get mountpoints for UEFI disk %s: %w", configData.UEFI.Disk, err)
+			return fmt.Errorf(
+				"failed to get mountpoints for UEFI disk %s: %w",
+				configData.UEFI.Disk,
+				err,
+			)
 		}
 
 		// Add UEFI mountpoints to our list
@@ -195,7 +228,11 @@ func partitionDisks(
 	uefiDiskConfig := configData.UEFI
 	partInfo.UEFI, err = partitionUEFIDisk(execute, configData)
 	if err != nil {
-		return PartitionInfo{}, fmt.Errorf("failed to partition UEFI disk %s: %w", uefiDiskConfig.Disk, err)
+		return PartitionInfo{}, fmt.Errorf(
+			"failed to partition UEFI disk %s: %w",
+			uefiDiskConfig.Disk,
+			err,
+		)
 	}
 
 	/*
@@ -205,7 +242,11 @@ func partitionDisks(
 	*/
 	nixosConfigDisk := configData.UEFI.Disk
 	if configData.NixOS.Config.Enabled {
-		partInfo.NixOSConfig, err = partitionNixOSConfigDisk(execute, nixosConfigDisk, uefiDiskConfig.Disk)
+		partInfo.NixOSConfig, err = partitionNixOSConfigDisk(
+			execute,
+			nixosConfigDisk,
+			uefiDiskConfig.Disk,
+		)
 		if err != nil {
 			return PartitionInfo{}, fmt.Errorf(
 				"failed to partition NixOS config on disk %s: %w",
@@ -246,7 +287,10 @@ func partitionDisks(
 }
 
 // partitionUEFIDisk handles partitioning and formatting for the UEFI disk.
-func partitionUEFIDisk(execute bool, configData *config.Config) (partitionNameUEFI string, err error) {
+func partitionUEFIDisk(
+	execute bool,
+	configData *config.Config,
+) (partitionNameUEFI string, err error) {
 	partitionNumberUEFI := 1
 	partitionNameUEFI = fmt.Sprintf("%s-part%d", configData.UEFI.Disk, partitionNumberUEFI)
 	partitionSizeUEFI := configData.UEFI.Size
@@ -270,7 +314,11 @@ func partitionUEFIDisk(execute bool, configData *config.Config) (partitionNameUE
 		configData.UEFI.Disk,
 	)
 	if err != nil {
-		return "", fmt.Errorf("sgdisk --new (UEFI partition) failed for %s: %w", configData.UEFI.Disk, err)
+		return "", fmt.Errorf(
+			"sgdisk --new (UEFI partition) failed for %s: %w",
+			configData.UEFI.Disk,
+			err,
+		)
 	}
 
 	// Print the partition table.
@@ -282,7 +330,11 @@ func partitionUEFIDisk(execute bool, configData *config.Config) (partitionNameUE
 	)
 	if err != nil {
 		// Log print error but don't fail the whole operation
-		log.Printf("Warning: sgdisk --print failed for %s after partitioning: %v", configData.UEFI.Disk, err)
+		log.Printf(
+			"Warning: sgdisk --print failed for %s after partitioning: %v",
+			configData.UEFI.Disk,
+			err,
+		)
 	}
 
 	log.Printf("Formatting UEFI partition: %s\n", partitionNameUEFI)
@@ -578,7 +630,11 @@ func wipeDisk(execute bool, diskPath string) error {
 	// First try to clean ZFS-specific issues
 	err := cleanZFSDisk(execute, diskPath)
 	if err != nil {
-		log.Printf("Warning: Failed to clean disk using ZFS, trying fallback options for %s: %v", diskPath, err)
+		log.Printf(
+			"Warning: Failed to clean disk using ZFS, trying fallback options for %s: %v",
+			diskPath,
+			err,
+		)
 	}
 
 	// Get the real device path
@@ -687,7 +743,12 @@ func resolveDevicePath(execute bool, diskPath string) string {
 
 // findPartitionDevicePath tries multiple strategies to find a usable device path for a partition
 // It returns the first working path or an empty string if no path was found
-func findPartitionDevicePath(execute bool, diskPath string, partitionNumber int, originalPartitionPath string) string {
+func findPartitionDevicePath(
+	execute bool,
+	diskPath string,
+	partitionNumber int,
+	originalPartitionPath string,
+) string {
 	if !execute {
 		return originalPartitionPath // In dry-run mode, just return the original path
 	}
@@ -737,25 +798,43 @@ func findPartitionDevicePath(execute bool, diskPath string, partitionNumber int,
 		baseDiskName := path.Base(baseDiskPath)
 		directPartitionPath := fmt.Sprintf("/dev/%s%d", baseDiskName, partitionNumber)
 		if _, err := os.Stat(directPartitionPath); err == nil {
-			log.Printf("Found direct partition path after global partprobe: %s", directPartitionPath)
+			log.Printf(
+				"Found direct partition path after global partprobe: %s",
+				directPartitionPath,
+			)
 			return directPartitionPath
 		}
 	}
 
 	// If we still don't have a path, warn but return empty string
-	log.Printf("Warning: Could not find a usable device path for partition %d on %s", partitionNumber, diskPath)
+	log.Printf(
+		"Warning: Could not find a usable device path for partition %d on %s",
+		partitionNumber,
+		diskPath,
+	)
 	return ""
 }
 
 // formatPartition formats a partition, ensuring a usable device path is found first
 // Returns an error if formatting fails
-func formatPartition(execute bool, diskPath string, partitionNumber int, partitionNameOriginal string,
-	formatCmd string, formatArgs ...string) error {
+func formatPartition(
+	execute bool,
+	diskPath string,
+	partitionNumber int,
+	partitionNameOriginal string,
+	formatCmd string,
+	formatArgs ...string,
+) error {
 	if execute {
 		log.Printf("Waiting for partition device to be available: %s\n", partitionNameOriginal)
 
 		// Try to find a usable device path
-		devicePath := findPartitionDevicePath(execute, diskPath, partitionNumber, partitionNameOriginal)
+		devicePath := findPartitionDevicePath(
+			execute,
+			diskPath,
+			partitionNumber,
+			partitionNameOriginal,
+		)
 
 		// If no path was found, fall back to the original
 		if devicePath == "" {
@@ -829,7 +908,11 @@ func cleanZFSDisk(execute bool, diskPath string) error {
 					}
 
 					if poolName != "" {
-						log.Printf("Found disk %s in pool %s, trying to offline", baseDiskName, poolName)
+						log.Printf(
+							"Found disk %s in pool %s, trying to offline",
+							baseDiskName,
+							poolName,
+						)
 
 						// Try to offline the disk
 						_, err = utils.Execute(
@@ -841,7 +924,12 @@ func cleanZFSDisk(execute bool, diskPath string) error {
 							resolvedPath,
 						)
 						if err != nil {
-							log.Printf("Warning: Could not offline disk %s from pool %s: %v", baseDiskName, poolName, err)
+							log.Printf(
+								"Warning: Could not offline disk %s from pool %s: %v",
+								baseDiskName,
+								poolName,
+								err,
+							)
 						}
 
 						// Try to export the pool

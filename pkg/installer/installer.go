@@ -100,7 +100,12 @@ func Run() error {
 	log.Println("--- Starting ZFS Setup Phase ---")
 
 	// Create the ZFS pools and capture the boot and root pool names.
-	zfsPoolBootName, zfsPoolRootName, err := createZFSPool(*execute, mountPoint, configData, zfsDiskIDs)
+	zfsPoolBootName, zfsPoolRootName, err := createZFSPool(
+		*execute,
+		mountPoint,
+		configData,
+		zfsDiskIDs,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create ZFS pool: %w", err)
 	}
