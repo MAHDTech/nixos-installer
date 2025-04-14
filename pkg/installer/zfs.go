@@ -491,8 +491,14 @@ func createZFSRootDatasets(
 				}
 
 				// Trigger udev to reload devices
-				_, _ = utils.Execute(execute, utils.ModeNormal, "udevadm", "trigger")
-				_, _ = utils.Execute(execute, utils.ModeNormal, "udevadm", "settle")
+				_, err = utils.Execute(execute, utils.ModeNormal, "udevadm", "trigger")
+				if err != nil {
+					log.Printf("Warning: udevadm trigger failed: %v", err)
+				}
+				_, err = utils.Execute(execute, utils.ModeNormal, "udevadm", "settle")
+				if err != nil {
+					log.Printf("Warning: udevadm settle failed: %v", err)
+				}
 
 				// Check if the directory exists, create if needed
 				dir := path.Dir(swapDevicePath)

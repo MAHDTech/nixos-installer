@@ -790,7 +790,10 @@ func findPartitionDevicePath(
 				return directPartitionPath
 			}
 
-			_, _ = utils.Execute(execute, utils.ModeNormal, "partprobe", baseDiskPath)
+			_, err := utils.Execute(execute, utils.ModeSilent, "partprobe", baseDiskPath)
+			if err != nil {
+				log.Printf("Warning: partprobe failed for %s: %v", baseDiskPath, err)
+			}
 			log.Printf("Waiting for direct device path (attempt %d of 5)...", attempt)
 			time.Sleep(2 * time.Second)
 		}
@@ -804,14 +807,20 @@ func findPartitionDevicePath(
 			return originalPartitionPath
 		}
 
-		_, _ = utils.Execute(execute, utils.ModeNormal, "partprobe", diskPath)
+		_, err := utils.Execute(execute, utils.ModeSilent, "partprobe", diskPath)
+		if err != nil {
+			log.Printf("Warning: partprobe failed for %s: %v", diskPath, err)
+		}
 		log.Printf("Waiting for by-id device path (attempt %d of 5)...", attempt)
 		time.Sleep(2 * time.Second)
 	}
 
 	// Last resort - run partprobe globally
 	log.Printf("Running partprobe globally to update all partition tables...")
-	_, _ = utils.Execute(execute, utils.ModeNormal, "partprobe")
+	_, err := utils.Execute(execute, utils.ModeSilent, "partprobe")
+	if err != nil {
+		log.Printf("Warning: partprobe failed: %v", err)
+	}
 	time.Sleep(3 * time.Second)
 
 	// One last check for direct path
