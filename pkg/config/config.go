@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-playground/validator/v10"
+	validator "github.com/go-playground/validator/v10"
 	yaml "gopkg.in/yaml.v3"
 
 	utils "github.com/MAHDTech/nixos-installer/pkg/utils"
