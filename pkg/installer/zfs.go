@@ -21,15 +21,30 @@ func createZFSPool(
 ) (zfsBootPoolName string, zfsRootPoolName string, err error) {
 	log.Println("--- Creating ZFS Pools ---")
 
-	var zfsBootPoolArgs []string
-	var zfsRootPoolArgs []string
-
-	/*
-	 --- ZFS Boot Pool Configuration ---
-	*/
-
 	// Create boot pool
 	zfsBootPoolName = configData.ZFS.BootPool.Name
+	err = createZFSBootPool(execute, configData)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create ZFS boot pool: %w", err)
+	}
+
+	// Create root pool
+	zfsRootPoolName = configData.ZFS.RootPool.Name
+	err = createZFSRootPool(execute, mountPoint, configData, zfsDiskIDs)
+	if err != nil {
+		return zfsBootPoolName, "", fmt.Errorf("failed to create ZFS root pool: %w", err)
+	}
+
+	log.Println("--- ZFS Pool Creation Complete ---")
+	return zfsBootPoolName, zfsRootPoolName, nil
+}
+
+// createZFSBootPool creates the ZFS boot pool.
+func createZFSBootPool(
+	execute bool,
+	configData *config.Config,
+) error {
+	zfsBootPoolName := configData.ZFS.BootPool.Name
 	zfsBootPoolDisks := configData.ZFS.Disks
 
 	if len(zfsBootPoolDisks) == 0 {
@@ -52,7 +67,7 @@ func createZFSPool(
 	log.Printf("Creating ZFS boot pool %s on partition %v\n", zfsBootPoolName, bootPartitions)
 
 	// Prepare common boot pool arguments
-	zfsBootPoolArgs = []string{
+	zfsBootPoolArgs := []string{
 		"create",
 		"-f",
 		"-o", fmt.Sprintf("ashift=%d", configData.ZFS.Ashift),
@@ -75,7 +90,8 @@ func createZFSPool(
 	}
 
 	// Boot pool specific options for bootloader compatibility
-	zfsBootPoolArgs = append(zfsBootPoolArgs,
+	zfsBootPoolArgs = append(
+		zfsBootPoolArgs,
 		"-O", "encryption=off",
 		"-o", "feature@encryption=disabled",
 		"-o", "feature@project_quota=disabled",
@@ -83,20 +99,12 @@ func createZFSPool(
 		"-o", "feature@bookmark_v2=disabled",
 		"-o", "feature@redaction_bookmarks=disabled",
 		"-o", "feature@redacted_datasets=disabled",
-		"-o", "feature@bookmark_written=disabled",
-		"-o", "feature@log_spacemap=disabled",
-		"-o", "feature@sha512=disabled",
-		"-o", "feature@skein=disabled",
-		"-o", "feature@edonr=disabled",
-		zfsBootPoolName,
 	)
 
-	// Set the altroot temporary mountpoint for the install.
-	zfsBootPoolArgs = append(zfsBootPoolArgs,
-		"-R", mountPoint,
-	)
+	// Add pool name
+	zfsBootPoolArgs = append(zfsBootPoolArgs, zfsBootPoolName)
 
-	// Handle pool topology (mirror, stripe, or single disk)
+	// Handle boot partition topology (mirror, stripe, or single disk)
 	switch {
 	case configData.ZFS.BootPool.Mirror && len(bootPartitions) > 1:
 		zfsBootPoolArgs = append(zfsBootPoolArgs, "mirror")
@@ -115,51 +123,32 @@ func createZFSPool(
 	// DEBUG: Print the boot pool arguments
 	log.Printf("Boot pool arguments: %v\n", zfsBootPoolArgs)
 
-	// Make sure the boot partitions exist before creating the pool.
-	if execute {
-		for _, part := range bootPartitions {
-			if _, err := os.Stat(part); err != nil {
-				log.Printf("Warning: Boot partition path doesn't exist: %s", part)
-				// Could even try alternate format here as last resort
-			}
-		}
-	}
-
-	// Execute boot pool creation command
-	_, err = utils.Execute(
+	// Execute the boot pool creation command
+	_, err := utils.Execute(
 		execute,
 		utils.ModeNormal,
 		"zpool",
 		zfsBootPoolArgs...,
 	)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create ZFS boot pool %s: %w", zfsBootPoolName, err)
+		return fmt.Errorf("failed to create ZFS boot pool %s: %w", zfsBootPoolName, err)
 	}
 
-	/*
-	 --- ZFS Root Pool Configuration ---
-	*/
-	zfsRootPoolName = configData.ZFS.RootPool.Name
+	return nil
+}
 
-	// Handle pool topology (mirror, stripe, or single disk)
-	switch {
-	case configData.ZFS.RootPool.Mirror && len(zfsDiskIDs) > 1:
-		zfsRootPoolArgs = append(zfsRootPoolArgs, "mirror")
-		zfsRootPoolArgs = append(zfsRootPoolArgs, zfsDiskIDs...)
-		log.Println("Creating mirrored root pool")
-	case configData.ZFS.RootPool.Stripe && len(zfsDiskIDs) > 1:
-		// For stripe, just add all partitions (no 'stripe' keyword in zpool create)
-		zfsRootPoolArgs = append(zfsRootPoolArgs, zfsDiskIDs...)
-		log.Println("Creating striped root pool")
-	default:
-		// For single disk or fallback, just use the first disk
-		zfsRootPoolArgs = append(zfsRootPoolArgs, zfsDiskIDs[0])
-		log.Println("Creating single-disk root pool")
-	}
+// createZFSRootPool creates the ZFS root pool.
+func createZFSRootPool(
+	execute bool,
+	mountPoint string,
+	configData *config.Config,
+	zfsDiskIDs []string,
+) error {
+	zfsRootPoolName := configData.ZFS.RootPool.Name
 
-	// Prepare the root partition paths using the same NVMe vs traditional disk logic
+	// Prepare root partition IDs
 	rootPartitions := []string{}
-	for _, disk := range configData.ZFS.Disks {
+	for _, disk := range zfsDiskIDs {
 		// Check if it's an NVMe disk (contains "nvme" in the path)
 		if strings.Contains(disk, "nvme") {
 			// NVMe disks use -partN format
@@ -170,15 +159,10 @@ func createZFSPool(
 		}
 	}
 
-	log.Printf(
-		"Creating ZFS root pool %s using type %s on partition %v\n",
-		zfsRootPoolName,
-		zfsRootPoolArgs[0],
-		rootPartitions,
-	)
+	log.Printf("Creating ZFS root pool %s on partition %v\n", zfsRootPoolName, rootPartitions)
 
-	// Root pool base arguments - optimized for data storage
-	zfsRootPoolArgs = []string{
+	// Prepare common root pool arguments
+	zfsRootPoolArgs := []string{
 		"create",
 		"-f",
 		"-o", fmt.Sprintf("ashift=%d", configData.ZFS.Ashift),
@@ -201,14 +185,16 @@ func createZFSPool(
 	}
 
 	// Set the altroot temporary mountpoint for the install.
-	zfsRootPoolArgs = append(zfsRootPoolArgs,
+	zfsRootPoolArgs = append(
+		zfsRootPoolArgs,
 		"-R", mountPoint,
 	)
 
 	// Add encryption options if enabled
 	if configData.ZFS.RootPool.Encryption {
 		log.Println("ZFS Encryption is enabled for root pool.")
-		zfsRootPoolArgs = append(zfsRootPoolArgs,
+		zfsRootPoolArgs = append(
+			zfsRootPoolArgs,
 			"-O", "encryption=aes-256-gcm",
 			"-O", "keylocation=prompt",
 			"-O", "keyformat=passphrase",
@@ -240,22 +226,21 @@ func createZFSPool(
 	log.Printf("Root pool arguments: %v\n", zfsRootPoolArgs)
 
 	// Execute the root pool creation command
-	_, err = utils.Execute(
+	_, err := utils.Execute(
 		execute,
 		utils.ModeNormal,
 		"zpool",
 		zfsRootPoolArgs...,
 	)
 	if err != nil {
-		return zfsBootPoolName, zfsRootPoolName, fmt.Errorf(
+		return fmt.Errorf(
 			"failed to create ZFS root pool %s: %w",
 			zfsRootPoolName,
 			err,
 		)
 	}
 
-	log.Println("--- ZFS Pool Creation Complete ---")
-	return zfsBootPoolName, zfsRootPoolName, nil
+	return nil
 }
 
 // createZFSBootDatasets creates the necessary ZFS datasets on the boot pool.
