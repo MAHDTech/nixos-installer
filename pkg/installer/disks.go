@@ -1,6 +1,7 @@
 package installer
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -11,6 +12,14 @@ import (
 
 	config "github.com/MAHDTech/nixos-installer/pkg/config"
 	utils "github.com/MAHDTech/nixos-installer/pkg/utils"
+)
+
+const (
+	shortWaitTime  = 2 * time.Second
+	mediumWaitTime = 3 * time.Second
+	longWaitTime   = 5 * time.Second
+	maxAttempts    = 5
+	minFieldCount  = 2
 )
 
 // PartitionInfo holds information about created partitions
@@ -217,7 +226,12 @@ func partitionDisks(
 	execute bool,
 	configData *config.Config,
 ) (PartitionInfo, error) {
-	partInfo := PartitionInfo{}
+	partInfo := PartitionInfo{
+		UEFI:        "",
+		NixOSConfig: "",
+		ZFSBoot:     []string{},
+		ZFSData:     []string{},
+	}
 	var err error
 
 	log.Println("--- Partitioning Disks ---")
@@ -496,7 +510,7 @@ func partitionZFSDisk(
 		execute,
 		utils.ModeNormal,
 		"sgdisk",
-		fmt.Sprintf("--print=%s", zfsDisk),
+		"--print="+zfsDisk,
 	)
 	if err != nil {
 		// Log print error but don't fail the whole operation
@@ -531,7 +545,7 @@ func getZFSDiskIDs(execute bool, zfsDisks []string) (zfsDiskIDs []string, err er
 		// Sometimes /dev/disk/by-id takes a moment to update
 		// so we need to retry a few times with different patterns
 		var diskID string
-		for attempt := 0; attempt < 5; attempt++ {
+		for attempt := range 5 {
 			// Try all possible naming patterns
 			patterns := []string{}
 
@@ -617,10 +631,8 @@ func getZFSDiskIDs(execute bool, zfsDisks []string) (zfsDiskIDs []string, err er
 
 		// Final check - do we have a valid ID?
 		if diskID == "" {
-			return nil, fmt.Errorf(
-				"could not find any valid device ID for ZFS data partition on %s after multiple attempts",
-				zfsDisk,
-			)
+			var ErrNoValidDeviceID = errors.New("could not find any valid device ID for ZFS data partition")
+			return nil, fmt.Errorf("%w: %s", ErrNoValidDeviceID, zfsDisk)
 		}
 
 		zfsDiskIDs[index] = diskID
@@ -1051,7 +1063,7 @@ func forceUnmountMountpoints(execute bool) error {
 
 		for _, mount := range mounts {
 			fields := strings.Fields(mount)
-			if len(fields) >= 2 {
+			if len(fields) >= minFieldCount {
 				mountpointFound := fields[1]
 				if strings.HasPrefix(mountpointFound, mountPoint) {
 					log.Printf("Force unmounting: %s", mountpointFound)

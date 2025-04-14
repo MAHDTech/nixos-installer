@@ -141,14 +141,20 @@ func createZFSPool(
 	*/
 	zfsRootPoolName = configData.ZFS.RootPool.Name
 
-	// Determine pool topology
-	var poolTopology string
-	if configData.ZFS.RootPool.Mirror && len(zfsDiskIDs) > 1 {
-		poolTopology = "mirror"
-	} else if configData.ZFS.RootPool.Stripe && len(zfsDiskIDs) > 1 {
-		poolTopology = "stripe"
-	} else {
-		poolTopology = "single"
+	// Handle pool topology (mirror, stripe, or single disk)
+	switch {
+	case configData.ZFS.RootPool.Mirror && len(zfsDiskIDs) > 1:
+		zfsRootPoolArgs = append(zfsRootPoolArgs, "mirror")
+		zfsRootPoolArgs = append(zfsRootPoolArgs, zfsDiskIDs...)
+		log.Println("Creating mirrored root pool")
+	case configData.ZFS.RootPool.Stripe && len(zfsDiskIDs) > 1:
+		// For stripe, just add all partitions (no 'stripe' keyword in zpool create)
+		zfsRootPoolArgs = append(zfsRootPoolArgs, zfsDiskIDs...)
+		log.Println("Creating striped root pool")
+	default:
+		// For single disk or fallback, just use the first disk
+		zfsRootPoolArgs = append(zfsRootPoolArgs, zfsDiskIDs[0])
+		log.Println("Creating single-disk root pool")
 	}
 
 	// Prepare the root partition paths using the same NVMe vs traditional disk logic
@@ -167,7 +173,7 @@ func createZFSPool(
 	log.Printf(
 		"Creating ZFS root pool %s using type %s on partition %v\n",
 		zfsRootPoolName,
-		poolTopology,
+		zfsRootPoolArgs[0],
 		rootPartitions,
 	)
 
@@ -214,16 +220,17 @@ func createZFSPool(
 	// Add pool name
 	zfsRootPoolArgs = append(zfsRootPoolArgs, zfsRootPoolName)
 
-	// Handle pool topology for root pool
-	if configData.ZFS.RootPool.Mirror && len(rootPartitions) > 1 {
+	// Handle root partition topology (mirror, stripe, or single disk)
+	switch {
+	case configData.ZFS.RootPool.Mirror && len(rootPartitions) > 1:
 		zfsRootPoolArgs = append(zfsRootPoolArgs, "mirror")
 		zfsRootPoolArgs = append(zfsRootPoolArgs, rootPartitions...)
 		log.Println("Creating mirrored root pool")
-	} else if configData.ZFS.RootPool.Stripe && len(rootPartitions) > 1 {
+	case configData.ZFS.RootPool.Stripe && len(rootPartitions) > 1:
 		// For stripe, just add all partitions (no 'stripe' keyword in zpool create)
 		zfsRootPoolArgs = append(zfsRootPoolArgs, rootPartitions...)
 		log.Println("Creating striped root pool")
-	} else {
+	default:
 		// For single disk or fallback, just use the first partition
 		zfsRootPoolArgs = append(zfsRootPoolArgs, rootPartitions[0])
 		log.Println("Creating single-disk root pool")
