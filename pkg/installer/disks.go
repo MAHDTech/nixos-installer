@@ -579,9 +579,18 @@ func getZFSDiskIDs(execute bool, zfsDisks []string) (zfsDiskIDs []string, err er
 			// This handles cases where by-id links haven't been created yet
 			if execute && attempt == 3 {
 				// Force a global partition table update
-				_, _ = utils.Execute(execute, utils.ModeNormal, "partprobe")
-				_, _ = utils.Execute(execute, utils.ModeNormal, "udevadm", "trigger")
-				_, _ = utils.Execute(execute, utils.ModeNormal, "udevadm", "settle")
+				_, err = utils.Execute(execute, utils.ModeNormal, "partprobe")
+				if err != nil {
+					log.Printf("Warning: partprobe failed for %s: %v", zfsDisk, err)
+				}
+				_, err = utils.Execute(execute, utils.ModeNormal, "udevadm", "trigger")
+				if err != nil {
+					log.Printf("Warning: udevadm trigger failed for %s: %v", zfsDisk, err)
+				}
+				_, err = utils.Execute(execute, utils.ModeNormal, "udevadm", "settle")
+				if err != nil {
+					log.Printf("Warning: udevadm settle failed for %s: %v", zfsDisk, err)
+				}
 			}
 
 			log.Printf("Waiting for disk ID for %s (attempt %d of 5)...", zfsDisk, attempt+1)

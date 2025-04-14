@@ -97,15 +97,16 @@ func createZFSPool(
 	)
 
 	// Handle pool topology (mirror, stripe, or single disk)
-	if configData.ZFS.BootPool.Mirror && len(bootPartitions) > 1 {
+	switch {
+	case configData.ZFS.BootPool.Mirror && len(bootPartitions) > 1:
 		zfsBootPoolArgs = append(zfsBootPoolArgs, "mirror")
 		zfsBootPoolArgs = append(zfsBootPoolArgs, bootPartitions...)
 		log.Println("Creating mirrored boot pool")
-	} else if configData.ZFS.BootPool.Stripe && len(bootPartitions) > 1 {
+	case configData.ZFS.BootPool.Stripe && len(bootPartitions) > 1:
 		// For stripe, just add all partitions (no 'stripe' keyword in zpool create)
 		zfsBootPoolArgs = append(zfsBootPoolArgs, bootPartitions...)
 		log.Println("Creating striped boot pool")
-	} else {
+	default:
 		// For single disk or fallback, just use the first partition
 		zfsBootPoolArgs = append(zfsBootPoolArgs, bootPartitions[0])
 		log.Println("Creating single-disk boot pool")
@@ -490,7 +491,7 @@ func createZFSRootDatasets(
 				dir := path.Dir(swapDevicePath)
 				if _, err := os.Stat(dir); os.IsNotExist(err) {
 					log.Printf("Creating directory: %s", dir)
-					if err := os.MkdirAll(dir, 0755); err != nil {
+					if err := os.MkdirAll(dir, 0750); err != nil {
 						log.Printf("Warning: Failed to create directory %s: %v", dir, err)
 					}
 				}
