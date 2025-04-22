@@ -137,7 +137,7 @@ func createZFSBootPool(
 	return nil
 }
 
-// createZFSRootPool creates the ZFS root pool.
+//nolint:gocyclo // createZFSRootPool creates the ZFS root pool.
 func createZFSRootPool(
 	execute bool,
 	mountPoint string,
@@ -310,8 +310,7 @@ func createZFSBootDatasets(
 	return nil
 }
 
-// createZFSRootDatasets creates the necessary ZFS datasets on the root pool.
-// Returns an error if any dataset creation fails.
+//nolint:gocyclo // createZFSRootDatasets creates the necessary ZFS datasets on the root pool.
 func createZFSRootDatasets(
 	execute bool,
 	zfsPoolRootName string,

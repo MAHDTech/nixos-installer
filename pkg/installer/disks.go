@@ -30,7 +30,7 @@ type PartitionInfo struct {
 	ZFSData     []string // ZFS data/root partitions can be one or more
 }
 
-// unmountDisks unmounts all partitions on the specified disks in the config.
+//nolint:gocyclo // unmountDisks unmounts all partitions on the specified disks in the config.
 func unmountDisks(execute bool, configData *config.Config) error {
 	var err error
 
@@ -524,7 +524,7 @@ func partitionZFSDisk(
 	return partitionNameZFSBoot, partitionNameZFSData, nil
 }
 
-// getZFSDiskIDs finds the /dev/disk/by-id/ paths for the ZFS data partitions.
+//nolint:gocyclo // getZFSDiskIDs finds the /dev/disk/by-id/ paths for the ZFS data partitions.
 func getZFSDiskIDs(execute bool, zfsDisks []string) (zfsDiskIDs []string, err error) {
 	log.Println("--- Retrieving ZFS Disk IDs ---")
 
@@ -899,7 +899,7 @@ func formatPartition(
 	return nil
 }
 
-// cleanZFSDisk properly handles ZFS disk cleaning
+//nolint:gocyclo // cleanZFSDisk properly handles ZFS disk cleaning
 func cleanZFSDisk(execute bool, diskPath string) error {
 	log.Printf("Performing thorough ZFS cleanup for disk: %s", diskPath)
 
