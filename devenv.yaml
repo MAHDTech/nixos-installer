@@ -22,7 +22,7 @@ permittedInsecurePackages: []
 imports: []
 
 clean:
-  enabled: true
+  enabled: false
   keep:
     - HOME
     - EDITOR
