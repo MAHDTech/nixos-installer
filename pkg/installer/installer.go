@@ -88,7 +88,7 @@ func Run() error {
 	// Users might provide disks in /dev/X format.
 	// We need to convert them to /dev/disk/by-id/X format as
 	// ZFS pools work better with the by-id format.
-	zfsDiskIDs, err := getZFSDiskIDs(*execute, configData.ZFS.Disks)
+	zfsDiskIDs, err := getDiskIDsByID(*execute, configData.ZFS.Disks)
 	if err != nil {
 		return fmt.Errorf("failed to get ZFS disk IDs: %w", err)
 	}

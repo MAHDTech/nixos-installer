@@ -1,7 +1,6 @@
 package installer
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -524,123 +523,110 @@ func partitionZFSDisk(
 	return partitionNameZFSBoot, partitionNameZFSData, nil
 }
 
-//nolint:gocyclo // getZFSDiskIDs finds the /dev/disk/by-id/ paths for the ZFS data partitions.
-func getZFSDiskIDs(execute bool, zfsDisks []string) (zfsDiskIDs []string, err error) {
-	log.Println("--- Retrieving ZFS Disk IDs ---")
+// findDiskIDByID finds the canonical /dev/disk/by-id path for a single disk.
+// It resolves the input path to a base device and searches for a matching by-id link.
+func findDiskIDByID(execute bool, diskPath string) (string, error) {
+	log.Printf("Finding by-id path for disk: %s", diskPath)
 
-	zfsDiskIDs = make([]string, len(zfsDisks))
+	// 1. Resolve input to base device path (e.g., /dev/sda, /dev/nvme0n1)
+	// Always execute readlink to resolve the path, even in dry-run, for accuracy.
+	baseDevicePathOutput, err := utils.Execute(true, utils.ModeStdOut, "readlink", "-f", diskPath)
+	if err != nil {
+		// If readlink fails, maybe the path is already the base path? Check if it exists.
+		if _, statErr := os.Stat(diskPath); statErr == nil {
+			log.Printf("Warning: readlink failed for %s (%v), assuming it's already the base path.", diskPath, err)
+			baseDevicePathOutput = diskPath // Use the input path directly
+		} else {
+			return "", fmt.Errorf("failed to resolve base device path for %s: %w", diskPath, err)
+		}
+	}
+	baseDevicePath := strings.TrimSpace(baseDevicePathOutput)
+	log.Printf("Resolved %s to base device path: %s", diskPath, baseDevicePath)
 
-	// For each disk, find the corresponding /dev/disk/by-id/ path
-	for index, zfsDisk := range zfsDisks {
-		log.Printf("Finding disk ID for ZFS disk %d: %s", index+1, zfsDisk)
+	// 2. Retry finding the matching by-id link
+	const maxAttempts = 5
+	const retryDelay = 2 * time.Second
 
-		// Step 1: Determine base device name
-		baseDevicePath := resolveDevicePath(execute, zfsDisk)
-		baseDeviceName := path.Base(baseDevicePath)
-		log.Printf("Resolved base device: %s", baseDevicePath)
-
-		// Step 2: Determine device type to know the partition naming pattern
-		isNVMe := strings.Contains(baseDeviceName, "nvme")
-
-		// Sometimes /dev/disk/by-id takes a moment to update
-		// so we need to retry a few times with different patterns
-		var diskID string
-		for attempt := range 5 {
-			// Try all possible naming patterns
-			patterns := []string{}
-
-			if isNVMe {
-				// NVMe devices typically use -partN suffix in by-id paths
-				patterns = append(patterns,
-					fmt.Sprintf("*%s-part2", path.Base(zfsDisk)),
-					fmt.Sprintf("*%s*p2", baseDeviceName),
-					fmt.Sprintf("*%s*-part2", baseDeviceName))
-			} else {
-				// Traditional disks might use different patterns
-				patterns = append(patterns,
-					fmt.Sprintf("*%s2", path.Base(zfsDisk)),
-					fmt.Sprintf("*%s*2", baseDeviceName),
-					fmt.Sprintf("*%s*-part2", baseDeviceName))
-			}
-
-			// Try each pattern
-			for _, pattern := range patterns {
-				output, execErr := utils.Execute(
-					execute,
-					utils.ModeStdOut,
-					"find",
-					"/dev/disk/by-id/",
-					"-lname",
-					pattern,
-				)
-
-				if execErr == nil {
-					// Clean up and check if we got a result
-					possibleIDs := strings.Split(strings.TrimSpace(output), "\n")
-					if len(possibleIDs) > 0 && possibleIDs[0] != "" {
-						diskID = possibleIDs[0]
-						log.Printf("Found disk ID using pattern '%s': %s", pattern, diskID)
-						break
-					}
-				}
-			}
-
-			if diskID != "" {
-				break // Found an ID, exit the retry loop
-			}
-
-			// If we can verify the partition exists directly, we can create a fallback
-			// This handles cases where by-id links haven't been created yet
-			if execute && attempt == 3 {
-				// Force a global partition table update
-				_, err = utils.Execute(execute, utils.ModeNormal, "partprobe")
-				if err != nil {
-					log.Printf("Warning: partprobe failed for %s: %v", zfsDisk, err)
-				}
-				_, err = utils.Execute(execute, utils.ModeNormal, "udevadm", "trigger")
-				if err != nil {
-					log.Printf("Warning: udevadm trigger failed for %s: %v", zfsDisk, err)
-				}
-				_, err = utils.Execute(execute, utils.ModeNormal, "udevadm", "settle")
-				if err != nil {
-					log.Printf("Warning: udevadm settle failed for %s: %v", zfsDisk, err)
-				}
-			}
-
-			log.Printf("Waiting for disk ID for %s (attempt %d of 5)...", zfsDisk, attempt+1)
-			time.Sleep(2 * time.Second)
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		entries, err := os.ReadDir("/dev/disk/by-id")
+		if err != nil {
+			// This directory should generally exist
+			return "", fmt.Errorf("failed to read /dev/disk/by-id: %w", err)
 		}
 
-		// Step 3: If we still can't find a proper by-id path, use a direct device path as fallback
-		if diskID == "" {
-			// Create a fallback ID based on the direct device path
-			if isNVMe {
-				// For NVMe try to build a partition path directly
-				if strings.Contains(baseDevicePath, "nvme") {
-					directPath := fmt.Sprintf("%sp2", baseDevicePath) // nvme0n1 -> nvme0n1p2
-					log.Printf("Using direct NVMe partition path as fallback: %s", directPath)
-					diskID = directPath
-				}
-			} else {
-				// For traditional devices
-				directPath := fmt.Sprintf("%s2", baseDevicePath) // sda -> sda2
-				log.Printf("Using direct partition path as fallback: %s", directPath)
-				diskID = directPath
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue // Skip directories
+			}
+			byIDPath := path.Join("/dev/disk/by-id", entry.Name())
+
+			// Resolve the by-id path symlink
+			// Always execute readlink to check the link target.
+			resolvedLinkOutput, err := utils.Execute(true, utils.ModeStdOut, "readlink", "-f", byIDPath)
+			if err != nil {
+				// Log warning but continue checking other links
+				log.Printf("Warning: could not resolve symlink %s: %v", byIDPath, err)
+				continue
+			}
+			resolvedLink := strings.TrimSpace(resolvedLinkOutput)
+
+			// Check if it matches the base device path *exactly*
+			if resolvedLink == baseDevicePath {
+				log.Printf("Found matching by-id path: %s -> %s", byIDPath, resolvedLink)
+				return byIDPath, nil // Success!
 			}
 		}
 
-		// Final check - do we have a valid ID?
-		if diskID == "" {
-			var ErrNoValidDeviceID = errors.New("could not find any valid device ID for ZFS data partition")
-			return nil, fmt.Errorf("%w: %s", ErrNoValidDeviceID, zfsDisk)
+		// If not found, wait and maybe trigger udev
+		if attempt < maxAttempts {
+			log.Printf("Matching by-id path for %s not found (attempt %d/%d). Waiting...", baseDevicePath, attempt, maxAttempts)
+			if execute {
+				// Trigger udev updates, errors are warnings
+				_, err = utils.Execute(execute, utils.ModeSilent, "udevadm", "settle", "--timeout=5")
+				if err != nil {
+					log.Printf("Warning: udevadm settle failed: %v", err)
+				}
+			}
+			time.Sleep(retryDelay)
 		}
-
-		zfsDiskIDs[index] = diskID
-		log.Printf("Final ZFS data disk %d ID: %s", index+1, diskID)
 	}
 
-	log.Println("--- ZFS Disk ID Retrieval Complete ---")
-	return zfsDiskIDs, nil
+	// If still not found after retries
+	log.Printf("Error: Could not find a /dev/disk/by-id/ link pointing to %s after %d attempts.", baseDevicePath, maxAttempts)
+	return "", fmt.Errorf("no /dev/disk/by-id/ link found for %s (resolved to %s)", diskPath, baseDevicePath)
+}
+
+// getDiskIDsByID finds the canonical /dev/disk/by-id/ paths for the given disk paths.
+// It replaces the old getZFSDiskIDs function.
+func getDiskIDsByID(execute bool, diskPaths []string) ([]string, error) {
+	log.Println("--- Retrieving Disk IDs by /dev/disk/by-id ---")
+	diskIDs := make([]string, len(diskPaths))
+	var errorsCollected []error
+
+	for i, p := range diskPaths {
+		diskID, err := findDiskIDByID(execute, p)
+		if err != nil {
+			log.Printf("Error finding ID for disk %s: %v", p, err)
+			// Collect errors to report all failures at the end
+			errorsCollected = append(errorsCollected, fmt.Errorf("disk '%s': %w", p, err))
+			diskIDs[i] = "" // Indicate failure for this disk
+		} else {
+			diskIDs[i] = diskID
+			log.Printf("Successfully found ID for disk %d (%s): %s", i+1, p, diskID)
+		}
+	}
+
+	log.Println("--- Disk ID Retrieval Complete ---")
+	if len(errorsCollected) > 0 {
+		// Combine errors into a single error message
+		errorStrings := make([]string, len(errorsCollected))
+		for i, e := range errorsCollected {
+			errorStrings[i] = e.Error()
+		}
+		return diskIDs, fmt.Errorf("failed to retrieve some disk IDs:\n - %s", strings.Join(errorStrings, "\n - "))
+	}
+
+	return diskIDs, nil
 }
 
 // wipeDisk thoroughly wipes a disk's partition tables and filesystem signatures.

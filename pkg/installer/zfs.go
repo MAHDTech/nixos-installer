@@ -23,9 +23,9 @@ func createZFSPool(
 
 	// Create boot pool
 	zfsBootPoolName = configData.ZFS.BootPool.Name
-	err = createZFSBootPool(execute, configData)
+	err = createZFSBootPool(execute, mountPoint, configData, zfsDiskIDs)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create ZFS boot pool: %w", err)
+		return zfsBootPoolName, "", fmt.Errorf("failed to create ZFS boot pool: %w", err)
 	}
 
 	// Create root pool
@@ -42,24 +42,21 @@ func createZFSPool(
 // createZFSBootPool creates the ZFS boot pool.
 func createZFSBootPool(
 	execute bool,
+	mountPoint string,
 	configData *config.Config,
+	zfsDiskIDs []string,
 ) error {
 	zfsBootPoolName := configData.ZFS.BootPool.Name
-	zfsBootPoolDisks := configData.ZFS.Disks
-
-	if len(zfsBootPoolDisks) == 0 {
-		log.Fatal("Cannot create ZFS boot pool: No ZFS disks specified in config.")
-	}
 
 	// Prepare boot partition IDs
 	bootPartitions := []string{}
-	for _, disk := range zfsBootPoolDisks {
+	for _, disk := range zfsDiskIDs {
 		// Check if it's an NVMe disk (contains "nvme" in the path)
 		if strings.Contains(disk, "nvme") {
-			// NVMe disks use -partN format
+			// For NVMe disks use -partN format
 			bootPartitions = append(bootPartitions, fmt.Sprintf("%s-part1", disk))
 		} else {
-			// Traditional SATA/SCSI disks might just append the number
+			// For traditional SATA/SCSI disks just append the number
 			bootPartitions = append(bootPartitions, fmt.Sprintf("%s1", disk))
 		}
 	}
@@ -82,12 +79,20 @@ func createZFSBootPool(
 		"-O", "devices=off",
 	}
 
-	// Add compression if enabled
+	// Add compression if enabled (default is true)
 	if configData.ZFS.BootPool.Compression {
 		zfsBootPoolArgs = append(zfsBootPoolArgs, "-O", "compression=zstd")
 	} else {
 		zfsBootPoolArgs = append(zfsBootPoolArgs, "-O", "compression=off")
 	}
+
+	// Set the altroot temporary mountpoint for the install.
+	// This is the 'boot' location for the install.
+	zfsBootPoolArgs = append(
+		zfsBootPoolArgs,
+		"-R", mountPoint,
+	)
+	log.Printf("Setting altroot mountpoint for boot pool: %s\n", mountPoint)
 
 	// Boot pool specific options for bootloader compatibility
 	zfsBootPoolArgs = append(
@@ -151,10 +156,10 @@ func createZFSRootPool(
 	for _, disk := range zfsDiskIDs {
 		// Check if it's an NVMe disk (contains "nvme" in the path)
 		if strings.Contains(disk, "nvme") {
-			// NVMe disks use -partN format
+			// For NVMe disks use -partN format
 			rootPartitions = append(rootPartitions, fmt.Sprintf("%s-part2", disk))
 		} else {
-			// Traditional SATA/SCSI disks might just append the number
+			// For traditional SATA/SCSI disks just append the number
 			rootPartitions = append(rootPartitions, fmt.Sprintf("%s2", disk))
 		}
 	}
@@ -185,10 +190,12 @@ func createZFSRootPool(
 	}
 
 	// Set the altroot temporary mountpoint for the install.
+	// This is the 'root' location for the install.
 	zfsRootPoolArgs = append(
 		zfsRootPoolArgs,
 		"-R", mountPoint,
 	)
+	log.Printf("Setting altroot mountpoint for root pool: %s\n", mountPoint)
 
 	// Add encryption options if enabled
 	if configData.ZFS.RootPool.Encryption {
