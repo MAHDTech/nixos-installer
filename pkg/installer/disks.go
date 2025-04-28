@@ -534,7 +534,11 @@ func findDiskIDByID(execute bool, diskPath string) (string, error) {
 	if err != nil {
 		// If readlink fails, maybe the path is already the base path? Check if it exists.
 		if _, statErr := os.Stat(diskPath); statErr == nil {
-			log.Printf("Warning: readlink failed for %s (%v), assuming it's already the base path.", diskPath, err)
+			log.Printf(
+				"Warning: readlink failed for %s (%v), assuming it's already the base path.",
+				diskPath,
+				err,
+			)
 			baseDevicePathOutput = diskPath // Use the input path directly
 		} else {
 			return "", fmt.Errorf("failed to resolve base device path for %s: %w", diskPath, err)
@@ -562,7 +566,13 @@ func findDiskIDByID(execute bool, diskPath string) (string, error) {
 
 			// Resolve the by-id path symlink
 			// Always execute readlink to check the link target.
-			resolvedLinkOutput, err := utils.Execute(true, utils.ModeStdOut, "readlink", "-f", byIDPath)
+			resolvedLinkOutput, err := utils.Execute(
+				true,
+				utils.ModeStdOut,
+				"readlink",
+				"-f",
+				byIDPath,
+			)
 			if err != nil {
 				// Log warning but continue checking other links
 				log.Printf("Warning: could not resolve symlink %s: %v", byIDPath, err)
@@ -579,10 +589,21 @@ func findDiskIDByID(execute bool, diskPath string) (string, error) {
 
 		// If not found, wait and maybe trigger udev
 		if attempt < maxAttempts {
-			log.Printf("Matching by-id path for %s not found (attempt %d/%d). Waiting...", baseDevicePath, attempt, maxAttempts)
+			log.Printf(
+				"Matching by-id path for %s not found (attempt %d/%d). Waiting...",
+				baseDevicePath,
+				attempt,
+				maxAttempts,
+			)
 			if execute {
 				// Trigger udev updates, errors are warnings
-				_, err = utils.Execute(execute, utils.ModeSilent, "udevadm", "settle", "--timeout=5")
+				_, err = utils.Execute(
+					execute,
+					utils.ModeSilent,
+					"udevadm",
+					"settle",
+					"--timeout=5",
+				)
 				if err != nil {
 					log.Printf("Warning: udevadm settle failed: %v", err)
 				}
@@ -592,8 +613,16 @@ func findDiskIDByID(execute bool, diskPath string) (string, error) {
 	}
 
 	// If still not found after retries
-	log.Printf("Error: Could not find a /dev/disk/by-id/ link pointing to %s after %d attempts.", baseDevicePath, maxAttempts)
-	return "", fmt.Errorf("no /dev/disk/by-id/ link found for %s (resolved to %s)", diskPath, baseDevicePath)
+	log.Printf(
+		"Error: Could not find a /dev/disk/by-id/ link pointing to %s after %d attempts.",
+		baseDevicePath,
+		maxAttempts,
+	)
+	return "", fmt.Errorf(
+		"no /dev/disk/by-id/ link found for %s (resolved to %s)",
+		diskPath,
+		baseDevicePath,
+	)
 }
 
 // getDiskIDsByID finds the canonical /dev/disk/by-id/ paths for the given disk paths.
@@ -623,7 +652,10 @@ func getDiskIDsByID(execute bool, diskPaths []string) ([]string, error) {
 		for i, e := range errorsCollected {
 			errorStrings[i] = e.Error()
 		}
-		return diskIDs, fmt.Errorf("failed to retrieve some disk IDs:\n - %s", strings.Join(errorStrings, "\n - "))
+		return diskIDs, fmt.Errorf(
+			"failed to retrieve some disk IDs:\n - %s",
+			strings.Join(errorStrings, "\n - "),
+		)
 	}
 
 	return diskIDs, nil
