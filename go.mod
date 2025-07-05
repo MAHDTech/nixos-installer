@@ -3,7 +3,7 @@ module github.com/MAHDTech/nixos-installer
 go 1.23.3
 
 require (
-	github.com/go-playground/validator/v10 v10.26.0
+	github.com/go-playground/validator/v10 v10.27.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
