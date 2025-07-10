@@ -764,7 +764,18 @@ func resolveDevicePath(execute bool, diskPath string) string {
 		return diskPath
 	}
 
-	// Get the actual device the symlink points to
+	// Handle dry-run mode first
+	if !execute {
+		// In dry-run mode, simulate the resolution based on disk type
+		if strings.Contains(diskPath, "nvme") {
+			log.Printf("Resolved %s to base device path: /dev/nvme0n1 (dry-run mode)", diskPath)
+			return "/dev/nvme0n1"
+		}
+		log.Printf("Resolved %s to base device path: /dev/sda (dry-run mode)", diskPath)
+		return "/dev/sda"
+	}
+
+	// Get the actual device the symlink points to (only in real execution mode)
 	deviceOutput, err := utils.Execute(
 		execute,
 		utils.ModeStdOut,
@@ -778,17 +789,6 @@ func resolveDevicePath(execute bool, diskPath string) string {
 			log.Printf("Resolved %s to %s", diskPath, resolvedPath)
 			return resolvedPath
 		}
-	}
-
-	// Handle dry-run mode or failed resolution
-	if !execute {
-		// In dry-run mode, simulate the resolution based on disk type
-		if strings.Contains(diskPath, "nvme") {
-			log.Printf("Resolved %s to base device path: /dev/nvme0n1 (dry-run mode)", diskPath)
-			return "/dev/nvme0n1"
-		}
-		log.Printf("Resolved %s to base device path: /dev/sda (dry-run mode)", diskPath)
-		return "/dev/sda"
 	}
 
 	log.Printf("Warning: could not resolve symlink %s: %v", diskPath, err)
