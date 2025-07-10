@@ -526,13 +526,8 @@ func partitionZFSDisk(execute bool, diskPath string, diskType string) error {
 	if execute {
 		log.Printf("Waiting for partition on %s to become available...", diskPath)
 
-		// Determine the expected partition path based on the disk type.
-		var expectedPartitionPath string
-		if strings.Contains(diskPath, "nvme") {
-			expectedPartitionPath = fmt.Sprintf("%s-part1", diskPath)
-		} else {
-			expectedPartitionPath = fmt.Sprintf("%s1", diskPath)
-		}
+		// The standard for /dev/disk/by-id partition links is to use the "-partN" suffix.
+		expectedPartitionPath := fmt.Sprintf("%s-part1", diskPath)
 
 		// Poll for the partition to exist.
 		const maxAttempts = 10

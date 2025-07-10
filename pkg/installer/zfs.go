@@ -30,46 +30,28 @@ func createZFSPool(
 	var zfsPoolArgs []string
 
 	// Prepare data partition IDs
-	dataPartitions := []string{}
-	for _, disk := range zfsDiskIDsData {
-		// Check if it's an NVMe disk (contains "nvme" in the path)
-		if strings.Contains(disk, "nvme") {
-			// For NVMe disks use -partN format
-			dataPartitions = append(dataPartitions, fmt.Sprintf("%s-part1", disk))
-		} else {
-			// For traditional SATA/SCSI disks just append the number
-			dataPartitions = append(dataPartitions, fmt.Sprintf("%s1", disk))
-		}
+	dataPartitions := make([]string, len(zfsDiskIDsData))
+	for i, disk := range zfsDiskIDsData {
+		// udev consistently creates partition links with the "-partN" suffix for by-id paths.
+		dataPartitions[i] = fmt.Sprintf("%s-part1", disk)
 	}
 
 	// Prepare cache partition IDs
-	cachePartitions := []string{}
-	for _, disk := range zfsDiskIDsCache {
-		if strings.Contains(disk, "nvme") {
-			cachePartitions = append(cachePartitions, fmt.Sprintf("%s-part1", disk))
-		} else {
-			cachePartitions = append(cachePartitions, fmt.Sprintf("%s1", disk))
-		}
+	cachePartitions := make([]string, len(zfsDiskIDsCache))
+	for i, disk := range zfsDiskIDsCache {
+		cachePartitions[i] = fmt.Sprintf("%s-part1", disk)
 	}
 
 	// Prepare log partition IDs
-	logPartitions := []string{}
-	for _, disk := range zfsDiskIDsLog {
-		if strings.Contains(disk, "nvme") {
-			logPartitions = append(logPartitions, fmt.Sprintf("%s-part1", disk))
-		} else {
-			logPartitions = append(logPartitions, fmt.Sprintf("%s1", disk))
-		}
+	logPartitions := make([]string, len(zfsDiskIDsLog))
+	for i, disk := range zfsDiskIDsLog {
+		logPartitions[i] = fmt.Sprintf("%s-part1", disk)
 	}
 
 	// Prepare spare partition IDs
-	sparePartitions := []string{}
-	for _, disk := range zfsDiskIDsSpare {
-		if strings.Contains(disk, "nvme") {
-			sparePartitions = append(sparePartitions, fmt.Sprintf("%s-part1", disk))
-		} else {
-			sparePartitions = append(sparePartitions, fmt.Sprintf("%s1", disk))
-		}
+	sparePartitions := make([]string, len(zfsDiskIDsSpare))
+	for i, disk := range zfsDiskIDsSpare {
+		sparePartitions[i] = fmt.Sprintf("%s-part1", disk)
 	}
 
 	// Build the pool creation arguments based on the pool type
