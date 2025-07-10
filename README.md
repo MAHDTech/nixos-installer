@@ -35,7 +35,7 @@ vim "${CONFIG_FILE}"
 
 ```bash
 # Dry run
-nix \
+sudo nix \
     --extra-experimental-features nix-command \
     --extra-experimental-features flakes \
     run github:MAHDTech/nixos-installer \
@@ -43,7 +43,7 @@ nix \
         -config "${CONFIG_FILE}"
 
 # Nuke all the things.
-nix \
+sudo nix \
     --extra-experimental-features nix-command \
     --extra-experimental-features flakes \
     run github:MAHDTech/nixos-installer \
