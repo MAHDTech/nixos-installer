@@ -275,42 +275,70 @@ func wipeAndPartitionDisks(
 	/*
 	 --- ZFS Disks ---
 
-	 Each ZFS disk is wiped in preparation for adding to the pool.
+	 Each ZFS disk is wiped and partitioned in preparation for adding to the pool.
 	*/
 
-	// Wipe any cache disks.
+	// Wipe and partition any cache disks.
 	for _, cacheDisk := range configData.ZFS.Pool.Disks.Cache {
 		err = wipeDisk(execute, cacheDisk)
 		if err != nil {
 			return PartitionInfo{}, fmt.Errorf("failed to wipe cache disk %s: %w", cacheDisk, err)
 		}
+		err = partitionZFSDisk(execute, cacheDisk, "cache")
+		if err != nil {
+			return PartitionInfo{}, fmt.Errorf(
+				"failed to partition cache disk %s: %w",
+				cacheDisk,
+				err,
+			)
+		}
 	}
 
-	// Wipe any log disks.
+	// Wipe and partition any log disks.
 	for _, logDisk := range configData.ZFS.Pool.Disks.Log {
 		err = wipeDisk(execute, logDisk)
 		if err != nil {
 			return PartitionInfo{}, fmt.Errorf("failed to wipe log disk %s: %w", logDisk, err)
 		}
+		err = partitionZFSDisk(execute, logDisk, "log")
+		if err != nil {
+			return PartitionInfo{}, fmt.Errorf("failed to partition log disk %s: %w", logDisk, err)
+		}
 	}
 
-	// Wipe any data disks.
+	// Wipe and partition any data disks.
 	for _, dataDisk := range configData.ZFS.Pool.Disks.Data {
 		err = wipeDisk(execute, dataDisk)
 		if err != nil {
 			return PartitionInfo{}, fmt.Errorf("failed to wipe data disk %s: %w", dataDisk, err)
 		}
+		err = partitionZFSDisk(execute, dataDisk, "data")
+		if err != nil {
+			return PartitionInfo{}, fmt.Errorf(
+				"failed to partition data disk %s: %w",
+				dataDisk,
+				err,
+			)
+		}
 	}
 
-	// Wipe any spare disks.
+	// Wipe and partition any spare disks.
 	for _, spareDisk := range configData.ZFS.Pool.Disks.Spare {
 		err = wipeDisk(execute, spareDisk)
 		if err != nil {
 			return PartitionInfo{}, fmt.Errorf("failed to wipe spare disk %s: %w", spareDisk, err)
 		}
+		err = partitionZFSDisk(execute, spareDisk, "spare")
+		if err != nil {
+			return PartitionInfo{}, fmt.Errorf(
+				"failed to partition spare disk %s: %w",
+				spareDisk,
+				err,
+			)
+		}
 	}
 
-	log.Println("--- Disk Wiping Complete ---")
+	log.Println("--- Disk Wiping and Partitioning Complete ---")
 	return partInfo, nil
 }
 
@@ -456,6 +484,44 @@ func partitionNixOSConfigDisk(
 	}
 
 	return partitionNameNixOSConfig, nil
+}
+
+// partitionZFSDisk creates a single partition on a ZFS disk for use in the pool.
+func partitionZFSDisk(execute bool, diskPath string, diskType string) error {
+	log.Printf("Partitioning ZFS %s disk: %s", diskType, diskPath)
+
+	// Create a single partition that uses the entire disk
+	_, err := utils.Execute(
+		execute,
+		utils.ModeNormal,
+		"sgdisk",
+		"--new=1:0:0",
+		"--typecode=1:bf00", // Solaris partition type
+		fmt.Sprintf("--change-name=1:zfs-%s", diskType),
+		diskPath,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create partition on %s disk %s: %w", diskType, diskPath, err)
+	}
+
+	// Print the partition table for verification
+	_, err = utils.Execute(
+		execute,
+		utils.ModeNormal,
+		"sgdisk",
+		fmt.Sprintf("--print=%s", diskPath),
+	)
+	if err != nil {
+		// Log print error but don't fail the whole operation
+		log.Printf(
+			"Warning: sgdisk --print failed for %s disk %s after partitioning: %v",
+			diskType,
+			diskPath,
+			err,
+		)
+	}
+
+	return nil
 }
 
 // findDiskIDByID finds the canonical /dev/disk/by-id path for a single disk.
@@ -708,12 +774,20 @@ func resolveDevicePath(execute bool, diskPath string) string {
 	)
 	if err == nil {
 		resolvedPath := strings.TrimSpace(deviceOutput)
-		log.Printf("Resolved %s to %s", diskPath, resolvedPath)
-		return resolvedPath
+		if resolvedPath != "" {
+			log.Printf("Resolved %s to %s", diskPath, resolvedPath)
+			return resolvedPath
+		}
 	}
 
-	log.Printf("Warning: could not resolve symlink %s: %v", diskPath, err)
-	return diskPath // Return original if resolution fails
+	// Handle dry-run mode
+	if !execute {
+		log.Printf("Dry run mode: Disks may not be resolved correctly.")
+	} else {
+		log.Printf("Warning: could not resolve symlink %s: %v", diskPath, err)
+	}
+
+	return diskPath
 }
 
 // findPartitionDevicePath tries multiple strategies to find a usable device path for a partition

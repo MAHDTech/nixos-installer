@@ -171,6 +171,8 @@ func applyDefaults(config *Config) {
 	if config.ZFS.Ashift == 0 {
 		config.ZFS.Ashift = 12
 		log.Printf("Warning: ZFS ashift value not specified, defaulting to 12 (4K sectors)")
+	} else {
+		log.Printf("Using ZFS ashift value: %d", config.ZFS.Ashift)
 	}
 
 	// ZFS pool type
