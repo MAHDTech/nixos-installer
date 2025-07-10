@@ -13,10 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MAHDTech/nixos-installer/pkg/sysutil"
 	validator "github.com/go-playground/validator/v10"
 	yaml "gopkg.in/yaml.v3"
-
-	utils "github.com/MAHDTech/nixos-installer/pkg/utils"
 )
 
 // Build-time variables injected by ldflags
@@ -205,7 +204,7 @@ func validateConfig(configData *Config) error {
 // validateUEFIConfig validates UEFI-related configuration
 func validateUEFIConfig(configData *Config) error {
 	// Check if the UEFI target device is a valid block device.
-	if !utils.IsValidBlockDevice(configData.UEFI.Disk) {
+	if !sysutil.IsValidBlockDevice(configData.UEFI.Disk) {
 		return fmt.Errorf("invalid UEFI block device: %s", configData.UEFI.Disk)
 	}
 	return nil
@@ -215,28 +214,28 @@ func validateUEFIConfig(configData *Config) error {
 func validateZFSDisks(configData *Config) error {
 	// Check data disks
 	for _, disk := range configData.ZFS.Pool.Disks.Data {
-		if !utils.IsValidBlockDevice(disk) {
+		if !sysutil.IsValidBlockDevice(disk) {
 			return fmt.Errorf("invalid ZFS data disk: %s", disk)
 		}
 	}
 
 	// Check cache disks
 	for _, disk := range configData.ZFS.Pool.Disks.Cache {
-		if !utils.IsValidBlockDevice(disk) {
+		if !sysutil.IsValidBlockDevice(disk) {
 			return fmt.Errorf("invalid ZFS cache disk: %s", disk)
 		}
 	}
 
 	// Check log disks
 	for _, disk := range configData.ZFS.Pool.Disks.Log {
-		if !utils.IsValidBlockDevice(disk) {
+		if !sysutil.IsValidBlockDevice(disk) {
 			return fmt.Errorf("invalid ZFS log disk: %s", disk)
 		}
 	}
 
 	// Check spare disks
 	for _, disk := range configData.ZFS.Pool.Disks.Spare {
-		if !utils.IsValidBlockDevice(disk) {
+		if !sysutil.IsValidBlockDevice(disk) {
 			return fmt.Errorf("invalid ZFS spare disk: %s", disk)
 		}
 	}
@@ -441,7 +440,7 @@ func readLocalConfigFile(configFile string) ([]byte, error) {
 	}
 
 	// Check if the config file exists (using cleaned path).
-	if !utils.FileExists(cleanedPath) {
+	if !sysutil.FileExists(cleanedPath) {
 		return nil, fmt.Errorf("config file not found: %s", cleanedPath)
 	}
 

@@ -6,7 +6,7 @@ import (
 	"path"
 
 	config "github.com/MAHDTech/nixos-installer/pkg/config"
-	utils "github.com/MAHDTech/nixos-installer/pkg/utils"
+	sysutil "github.com/MAHDTech/nixos-installer/pkg/sysutil"
 )
 
 // generateNixOSConfig runs nixos-generate-config.
@@ -14,9 +14,9 @@ func generateNixOSConfig(execute bool, mountPoint string) error {
 
 	log.Println("Generating NixOS configuration...")
 
-	_, err := utils.Execute(
+	_, err := sysutil.Execute(
 		execute,
-		utils.ModeNormal,
+		sysutil.ModeNormal,
 		"nixos-generate-config",
 		"--force",
 		"--root",
@@ -50,9 +50,9 @@ func installNixOS(
 			"Ensure NIXPKGS_ALLOW_UNFREE=1 is exported in your environment if your flake requires unfree packages.",
 		)
 
-		_, err := utils.Execute(
+		_, err := sysutil.Execute(
 			execute,
-			utils.ModeNormal,
+			sysutil.ModeNormal,
 			"nixos-install",
 			"--verbose",
 			"--no-root-passwd",

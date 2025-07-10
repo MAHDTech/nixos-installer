@@ -7,7 +7,7 @@ import (
 	"path"
 
 	config "github.com/MAHDTech/nixos-installer/pkg/config"
-	utils "github.com/MAHDTech/nixos-installer/pkg/utils"
+	sysutil "github.com/MAHDTech/nixos-installer/pkg/sysutil"
 )
 
 // checkMountpoints captures and returns the current system mountpoints.
@@ -21,9 +21,9 @@ func checkMountpoints(execute bool) ([]byte, error) {
 	log.Println("Checking existing mountpoints...")
 
 	// Get the mountpoints as a string
-	mountpointsString, err = utils.Execute(
+	mountpointsString, err = sysutil.Execute(
 		execute,
-		utils.ModeStdOut,
+		sysutil.ModeStdOut,
 		"lsblk",
 		"--noheadings",
 		"--json",
@@ -52,9 +52,9 @@ func createDirectories(execute bool, mountPoint string, configData *config.Confi
 
 	// Create the main mount directory.
 	log.Printf("Creating mount directory %s\n", mountPoint)
-	_, err := utils.Execute(
+	_, err := sysutil.Execute(
 		execute,
-		utils.ModeNormal,
+		sysutil.ModeNormal,
 		"mkdir",
 		"-p",
 		mountPoint,
@@ -66,9 +66,9 @@ func createDirectories(execute bool, mountPoint string, configData *config.Confi
 	// Create the 'boot' mount point.
 	mountPointBoot := path.Join(mountPoint, "boot")
 	log.Printf("Creating mount point for 'boot' at: %s\n", mountPointBoot)
-	_, err = utils.Execute(
+	_, err = sysutil.Execute(
 		execute,
-		utils.ModeNormal,
+		sysutil.ModeNormal,
 		"mkdir",
 		"-p",
 		mountPointBoot,
@@ -80,9 +80,9 @@ func createDirectories(execute bool, mountPoint string, configData *config.Confi
 	// Create the 'efi' mount point.
 	mountPointUEFI := path.Join(mountPoint, "boot/efi")
 	log.Printf("Creating mount point for 'efi' at: %s\n", mountPointUEFI)
-	_, err = utils.Execute(
+	_, err = sysutil.Execute(
 		execute,
-		utils.ModeNormal,
+		sysutil.ModeNormal,
 		"mkdir",
 		"-p",
 		mountPointUEFI,
@@ -95,9 +95,9 @@ func createDirectories(execute bool, mountPoint string, configData *config.Confi
 	if configData.NixOS.Config.Enabled {
 		mountPointNixOSConfig := path.Join(mountPoint, "boot/nixos")
 		log.Printf("Creating mount point for 'nixos' at: %s\n", mountPointNixOSConfig)
-		_, err = utils.Execute(
+		_, err = sysutil.Execute(
 			execute,
-			utils.ModeNormal,
+			sysutil.ModeNormal,
 			"mkdir",
 			"-p",
 			mountPointNixOSConfig,
@@ -114,9 +114,9 @@ func createDirectories(execute bool, mountPoint string, configData *config.Confi
 	// Create the 'home' mount point.
 	mountPointHome := path.Join(mountPoint, "home")
 	log.Printf("Creating mount point for 'home' at: %s\n", mountPointHome)
-	_, err = utils.Execute(
+	_, err = sysutil.Execute(
 		execute,
-		utils.ModeNormal,
+		sysutil.ModeNormal,
 		"mkdir",
 		"-p",
 		mountPointHome,
@@ -128,9 +128,9 @@ func createDirectories(execute bool, mountPoint string, configData *config.Confi
 	// Create the 'nix' mount point.
 	mountPointNix := path.Join(mountPoint, "nix")
 	log.Printf("Creating mount point for 'nix' at: %s\n", mountPointNix)
-	_, err = utils.Execute(
+	_, err = sysutil.Execute(
 		execute,
-		utils.ModeNormal,
+		sysutil.ModeNormal,
 		"mkdir",
 		"-p",
 		mountPointNix,
@@ -142,9 +142,9 @@ func createDirectories(execute bool, mountPoint string, configData *config.Confi
 	// Create the 'var' mount point.
 	mountPointVar := path.Join(mountPoint, "var")
 	log.Printf("Creating mount point for 'var' at: %s\n", mountPointVar)
-	_, err = utils.Execute(
+	_, err = sysutil.Execute(
 		execute,
-		utils.ModeNormal,
+		sysutil.ModeNormal,
 		"mkdir",
 		"-p",
 		mountPointVar,
@@ -156,9 +156,9 @@ func createDirectories(execute bool, mountPoint string, configData *config.Confi
 	// Create the 'lib' mount point.
 	mountPointLib := path.Join(mountPoint, "var/lib")
 	log.Printf("Creating mount point for 'lib' at: %s\n", mountPointLib)
-	_, err = utils.Execute(
+	_, err = sysutil.Execute(
 		execute,
-		utils.ModeNormal,
+		sysutil.ModeNormal,
 		"mkdir",
 		"-p",
 		mountPointLib,
@@ -170,9 +170,9 @@ func createDirectories(execute bool, mountPoint string, configData *config.Confi
 	// Create the 'docker' mount point.
 	mountPointDocker := path.Join(mountPoint, "var/lib/docker")
 	log.Printf("Creating mount point for 'docker' at: %s\n", mountPointDocker)
-	_, err = utils.Execute(
+	_, err = sysutil.Execute(
 		execute,
-		utils.ModeNormal,
+		sysutil.ModeNormal,
 		"mkdir",
 		"-p",
 		mountPointDocker,
@@ -184,9 +184,9 @@ func createDirectories(execute bool, mountPoint string, configData *config.Confi
 	// Create the 'containers' mount point.
 	mountPointContainers := path.Join(mountPoint, "var/lib/containers")
 	log.Printf("Creating mount point for 'containers' at: %s\n", mountPointContainers)
-	_, err = utils.Execute(
+	_, err = sysutil.Execute(
 		execute,
-		utils.ModeNormal,
+		sysutil.ModeNormal,
 		"mkdir",
 		"-p",
 		mountPointContainers,
@@ -198,9 +198,9 @@ func createDirectories(execute bool, mountPoint string, configData *config.Confi
 	// Create the 'tmp' mount point.
 	mountPointTmp := path.Join(mountPoint, "tmp")
 	log.Printf("Creating mount point for 'tmp' at: %s\n", mountPointTmp)
-	_, err = utils.Execute(
+	_, err = sysutil.Execute(
 		execute,
-		utils.ModeNormal,
+		sysutil.ModeNormal,
 		"mkdir",
 		"-p",
 		mountPointTmp,

@@ -1,5 +1,5 @@
-// Package utils provides utilities for working with filesystem mount operations.
-package utils
+// Package sysutil provides utilities for working with filesystem mount operations.
+package sysutil
 
 import (
 	"encoding/json"

@@ -1,5 +1,6 @@
-// Package utils provides utilities for the installer.
-package utils
+// Package sysutil provides core utilities for command execution, filesystem operations,
+// and device validation used throughout the nixos-installer.
+package sysutil
 
 import (
 	"fmt"

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	config "github.com/MAHDTech/nixos-installer/pkg/config"
-	utils "github.com/MAHDTech/nixos-installer/pkg/utils"
+	sysutil "github.com/MAHDTech/nixos-installer/pkg/sysutil"
 )
 
 // MountFileSystems mounts the created partitions and datasets
@@ -51,9 +51,9 @@ func mountFileSystems(
 	//    Example: /mnt/nixos + "/boot/efi"
 	mountPointUEFI := path.Join(mountPoint, "boot/efi")
 	log.Printf("Mounting UEFI partition %s to %s.\n", partitionInfo.UEFI, mountPointUEFI)
-	_, err = utils.Execute(
+	_, err = sysutil.Execute(
 		execute,
-		utils.ModeNormal,
+		sysutil.ModeNormal,
 		"mount",
 		"-o",
 		"X-mount.mkdir", // Option to create dir if it doesn't exist
@@ -75,9 +75,9 @@ func mountFileSystems(
 			partitionInfo.NixOSConfig,
 			mountPointNixOSConfig,
 		)
-		_, err = utils.Execute(
+		_, err = sysutil.Execute(
 			execute,
-			utils.ModeNormal,
+			sysutil.ModeNormal,
 			"mount",
 			"-o",
 			"X-mount.mkdir",
@@ -156,9 +156,9 @@ func mountFileSystems(
 
 	// 13. Set permissions for /tmp
 	log.Printf("Setting permissions for %s\n", mountPointTmp)
-	_, err = utils.Execute(
+	_, err = sysutil.Execute(
 		execute,
-		utils.ModeNormal,
+		sysutil.ModeNormal,
 		"chmod",
 		"1777",
 		mountPointTmp,
@@ -177,9 +177,9 @@ func mountZFSDataset(execute bool, dataset string) error {
 	log.Printf("Mount ZFS dataset %s to configured altroot", dataset)
 
 	// Check if the dataset is mounted
-	mountedOutput, err := utils.Execute(
+	mountedOutput, err := sysutil.Execute(
 		execute,
-		utils.ModeStdOut,
+		sysutil.ModeStdOut,
 		"zfs",
 		"get",
 		"-H",
@@ -195,9 +195,9 @@ func mountZFSDataset(execute bool, dataset string) error {
 	}
 
 	// Mount the dataset to the configured altroot + location
-	_, err = utils.Execute(
+	_, err = sysutil.Execute(
 		execute,
-		utils.ModeNormal,
+		sysutil.ModeNormal,
 		"zfs",
 		"mount",
 		dataset,
