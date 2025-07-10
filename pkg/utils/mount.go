@@ -1,3 +1,4 @@
+// Package utils provides utilities for working with filesystem mount operations.
 package utils
 
 import (

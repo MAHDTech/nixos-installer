@@ -7,9 +7,11 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	validator "github.com/go-playground/validator/v10"
 	yaml "gopkg.in/yaml.v3"
@@ -182,35 +184,69 @@ func applyDefaults(config *Config) {
 
 // validateConfig performs custom validation checks not covered by struct tags.
 func validateConfig(configData *Config) error {
+	// Validate UEFI configuration
+	if err := validateUEFIConfig(configData); err != nil {
+		return err
+	}
 
+	// Validate ZFS disk configuration
+	if err := validateZFSDisks(configData); err != nil {
+		return err
+	}
+
+	// Validate ZFS pool configuration
+	if err := validateZFSPool(configData); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateUEFIConfig validates UEFI-related configuration
+func validateUEFIConfig(configData *Config) error {
 	// Check if the UEFI target device is a valid block device.
 	if !utils.IsValidBlockDevice(configData.UEFI.Disk) {
 		return fmt.Errorf("invalid UEFI block device: %s", configData.UEFI.Disk)
 	}
+	return nil
+}
 
-	// Check if all ZFS disks are valid block devices.
+// validateZFSDisks validates that all ZFS disks are valid block devices
+func validateZFSDisks(configData *Config) error {
+	// Check data disks
 	for _, disk := range configData.ZFS.Pool.Disks.Data {
 		if !utils.IsValidBlockDevice(disk) {
 			return fmt.Errorf("invalid ZFS data disk: %s", disk)
 		}
 	}
+
+	// Check cache disks
 	for _, disk := range configData.ZFS.Pool.Disks.Cache {
 		if !utils.IsValidBlockDevice(disk) {
 			return fmt.Errorf("invalid ZFS cache disk: %s", disk)
 		}
 	}
+
+	// Check log disks
 	for _, disk := range configData.ZFS.Pool.Disks.Log {
 		if !utils.IsValidBlockDevice(disk) {
 			return fmt.Errorf("invalid ZFS log disk: %s", disk)
 		}
 	}
+
+	// Check spare disks
 	for _, disk := range configData.ZFS.Pool.Disks.Spare {
 		if !utils.IsValidBlockDevice(disk) {
 			return fmt.Errorf("invalid ZFS spare disk: %s", disk)
 		}
 	}
 
-	// ZFS ashift validation.
+	return nil
+}
+
+// validateZFSPool validates ZFS pool configuration including ashift, type, and disk count
+func validateZFSPool(configData *Config) error {
+	// ZFS ashift validation
 	if configData.ZFS.Ashift < 9 || configData.ZFS.Ashift > 16 {
 		return fmt.Errorf(
 			"invalid ashift value: %d. Must be between 9 and 16",
@@ -219,29 +255,37 @@ func validateConfig(configData *Config) error {
 	}
 
 	// ZFS pool type validation
-	validTypes := []string{"single", "mirror", "stripe", "raidz", "raidz2", "raidz3"}
-	typeValid := false
-	for _, validType := range validTypes {
-		if configData.ZFS.Pool.Type == validType {
-			typeValid = true
-			break
-		}
-	}
-	if !typeValid {
-		return fmt.Errorf(
-			"invalid ZFS pool type: %s. Must be one of: %v",
-			configData.ZFS.Pool.Type,
-			validTypes,
-		)
+	if err := validatePoolType(configData.ZFS.Pool.Type); err != nil {
+		return err
 	}
 
 	// Validate pool configuration based on type and number of data disks
-	dataDiskCount := len(configData.ZFS.Pool.Disks.Data)
+	return validatePoolTypeRequirements(configData.ZFS.Pool.Type, configData.ZFS.Pool.Disks.Data)
+}
+
+// validatePoolType validates that the pool type is supported
+func validatePoolType(poolType string) error {
+	validTypes := []string{"single", "mirror", "stripe", "raidz", "raidz2", "raidz3"}
+	for _, validType := range validTypes {
+		if poolType == validType {
+			return nil
+		}
+	}
+	return fmt.Errorf(
+		"invalid ZFS pool type: %s. Must be one of: %v",
+		poolType,
+		validTypes,
+	)
+}
+
+// validatePoolTypeRequirements validates disk count requirements for each pool type
+func validatePoolTypeRequirements(poolType string, dataDisks []string) error {
+	dataDiskCount := len(dataDisks)
 	if dataDiskCount == 0 {
 		return errors.New("at least one data disk is required for ZFS pool")
 	}
 
-	switch configData.ZFS.Pool.Type {
+	switch poolType {
 	case "single":
 		if dataDiskCount != 1 {
 			return fmt.Errorf(
@@ -311,7 +355,7 @@ func isConfigName(input string) bool {
 // fetchConfigFromGitHub fetches a config file from the GitHub repository
 func fetchConfigFromGitHub(configName string) ([]byte, error) {
 	// Construct the GitHub raw URL
-	url := fmt.Sprintf(
+	rawURL := fmt.Sprintf(
 		"https://raw.githubusercontent.com/%s/%s/configs/%s.yaml",
 		GitHubRepo,
 		GitRef,
@@ -320,10 +364,29 @@ func fetchConfigFromGitHub(configName string) ([]byte, error) {
 
 	log.Printf("Using GitHub repository: %s", GitHubRepo)
 	log.Printf("Using Git ref: %s", GitRef)
-	log.Printf("Fetching config from: %s", url)
+	log.Printf("Fetching config from: %s", rawURL)
 
-	// Make HTTP GET request
-	resp, err := http.Get(url)
+	// Validate the URL to mitigate security issues
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid URL format: %w", err)
+	}
+
+	// Ensure we're only making requests to GitHub
+	if parsedURL.Host != "raw.githubusercontent.com" {
+		return nil, fmt.Errorf(
+			"invalid host: %s, only raw.githubusercontent.com is allowed",
+			parsedURL.Host,
+		)
+	}
+
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// Make HTTP GET request with validated URL
+	resp, err := client.Get(parsedURL.String()) // #nosec G107 - URL is validated above
 	if err != nil {
 		return nil, fmt.Errorf("failed to make HTTP request: %w", err)
 	}
