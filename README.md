@@ -17,17 +17,17 @@ This installs NixOS;
 
 2. Setup Networking
 
-3. Copy the starting example configuration file (see configs folder for more examples)
+3. Define your configuration file.
 
 ```bash
+# Option 1: Use a predefined config from GitHub (configs/HYPERVISOR-1.yaml)
+export CONFIG_FILE="HYPERVISOR-1"
+
+# Option 2: Use a local config file (e.g. /tmp/config.yaml)
 export CONFIG_FILE="/tmp/config.yaml"
 
+# Edit the file to meet your needs.
 cp configs/example.yaml "${CONFIG_FILE}"
-```
-
-4. Edit the configuration file as required
-
-```bash
 vim "${CONFIG_FILE}"
 ```
 
@@ -52,7 +52,7 @@ sudo nix \
         -run
 ```
 
-6. Or, run the installer (go version)
+5. Or, run the installer (go version)
 
 ```bash
 nix-shell -p git go
@@ -76,3 +76,37 @@ sudo -E go run main.go \
   -run \
   -install
 ```
+
+## Configuration Options
+
+The installer supports two ways to specify configuration files:
+
+### Config Names (Automatic GitHub Fetch)
+
+When you pass a simple name without path separators or file extensions:
+
+- `HYPERVISOR-1` → fetches `configs/HYPERVISOR-1.yaml` from GitHub
+- `example` → fetches `configs/example.yaml` from GitHub
+
+**Important**: The config is automatically fetched from the **same branch/ref** that you're running the installer from:
+
+```bash
+# Fetches config from main branch
+sudo nix run github:MAHDTech/nixos-installer -- -config HYPERVISOR-1
+
+# Fetches config from my-feature-branch
+sudo nix run github:MAHDTech/nixos-installer/my-feature-branch -- -config HYPERVISOR-1
+
+# Fetches config from specific commit
+sudo nix run github:MAHDTech/nixos-installer/abc123def -- -config HYPERVISOR-1
+```
+
+This ensures that the configuration always matches the version of the installer you're running.
+
+### File Paths (Local Files)
+
+When you pass a path with separators or file extensions:
+
+- `./config.yaml` → reads local file
+- `/tmp/my-config.yaml` → reads local file
+- `configs/HYPERVISOR-1.yaml` → reads local file (if cloned repo)

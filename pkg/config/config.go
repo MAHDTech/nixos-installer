@@ -4,7 +4,9 @@ package config
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +15,12 @@ import (
 	yaml "gopkg.in/yaml.v3"
 
 	utils "github.com/MAHDTech/nixos-installer/pkg/utils"
+)
+
+// Build-time variables injected by ldflags
+var (
+	GitHubRepo = "MAHDTech/nixos-installer" // Default fallback
+	GitRef     = "trunk"                    // Default fallback
 )
 
 // Config is the top-level configuration for the installer.
@@ -93,49 +101,33 @@ type Config struct {
 }
 
 // ReadConfig reads and validates the YAML configuration file.
+// It supports both local file paths and config names that will be fetched from GitHub.
 func ReadConfig(configFile string) (*Config, error) {
 
-	// Get absolute path and clean it
-	absPath, err := filepath.Abs(configFile)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"failed to get absolute path for config file %s: %w",
-			configFile,
-			err,
-		)
-	}
-	cleanedPath := filepath.Clean(absPath)
+	var yamlFile []byte
+	var err error
 
-	// Security: Ensure the config file path is within the current working directory
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get current working directory: %w", err)
-	}
-	if !strings.HasPrefix(cleanedPath, cwd) {
-		return nil, fmt.Errorf(
-			"config file path %s is outside the current working directory %s",
-			cleanedPath,
-			cwd,
-		)
-	}
-
-	// Check if the config file exists (using cleaned path).
-	if !utils.FileExists(cleanedPath) {
-		return nil, fmt.Errorf("config file not found: %s", cleanedPath)
-	}
-
-	// Read the config file.
-	// #nosec G304 - Mitigate path traversal.
-	yamlFile, err := os.ReadFile(cleanedPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read config file %s: %w", cleanedPath, err)
+	// Determine if this is a config name or file path
+	if isConfigName(configFile) {
+		log.Printf("Detected config name '%s', fetching from GitHub...", configFile)
+		yamlFile, err = fetchConfigFromGitHub(configFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch config '%s' from GitHub: %w", configFile, err)
+		}
+	} else {
+		// Original file path logic
+		log.Printf("Detected file path '%s', reading local file...", configFile)
+		yamlFile, err = readLocalConfigFile(configFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read local config file: %w", err)
+		}
 	}
 
 	// Parse the YAML file.
 	var config Config
 	err = yaml.Unmarshal(yamlFile, &config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse config file %s: %w", cleanedPath, err)
+		return nil, fmt.Errorf("failed to parse config file %s: %w", configFile, err)
 	}
 
 	// Apply default values that weren't specified in the YAML
@@ -301,4 +293,101 @@ func validateConfig(configData *Config) error {
 	}
 
 	return nil
+}
+
+// isConfigName determines if the input is a config name (no path separators, no .yaml extension)
+// or a file path.
+func isConfigName(input string) bool {
+	// If it contains path separators or has .yaml extension, treat as file path
+	if strings.Contains(input, "/") || strings.Contains(input, "\\") ||
+		strings.HasSuffix(input, ".yaml") ||
+		strings.HasSuffix(input, ".yml") {
+		return false
+	}
+	// Otherwise, treat as config name
+	return true
+}
+
+// fetchConfigFromGitHub fetches a config file from the GitHub repository
+func fetchConfigFromGitHub(configName string) ([]byte, error) {
+	// Construct the GitHub raw URL
+	url := fmt.Sprintf(
+		"https://raw.githubusercontent.com/%s/%s/configs/%s.yaml",
+		GitHubRepo,
+		GitRef,
+		configName,
+	)
+
+	log.Printf("Using GitHub repository: %s", GitHubRepo)
+	log.Printf("Using Git ref: %s", GitRef)
+	log.Printf("Fetching config from: %s", url)
+
+	// Make HTTP GET request
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make HTTP request: %w", err)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Printf("Warning: failed to close response body: %v", closeErr)
+		}
+	}()
+
+	// Check if the response status is OK
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf(
+			"config '%s' not found on GitHub (HTTP %d)",
+			configName,
+			resp.StatusCode,
+		)
+	}
+
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	return body, nil
+}
+
+// readLocalConfigFile reads a config file from the local filesystem with security checks
+func readLocalConfigFile(configFile string) ([]byte, error) {
+	// Get absolute path and clean it
+	absPath, err := filepath.Abs(configFile)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to get absolute path for config file %s: %w",
+			configFile,
+			err,
+		)
+	}
+	cleanedPath := filepath.Clean(absPath)
+
+	// Security: Ensure the config file path is within the current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current working directory: %w", err)
+	}
+	if !strings.HasPrefix(cleanedPath, cwd) {
+		return nil, fmt.Errorf(
+			"config file path %s is outside the current working directory %s",
+			cleanedPath,
+			cwd,
+		)
+	}
+
+	// Check if the config file exists (using cleaned path).
+	if !utils.FileExists(cleanedPath) {
+		return nil, fmt.Errorf("config file not found: %s", cleanedPath)
+	}
+
+	// Read the config file.
+	// #nosec G304 - Mitigate path traversal.
+	yamlFile, err := os.ReadFile(cleanedPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file %s: %w", cleanedPath, err)
+	}
+
+	return yamlFile, nil
 }
