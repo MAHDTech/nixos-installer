@@ -746,31 +746,22 @@ func wipeDisk(execute bool, diskPath string) error {
 
 // resolveDevicePath resolves a possibly symlinked device path (especially from /dev/disk/by-id/)
 // to its actual /dev path (e.g., /dev/sda)
-func resolveDevicePath(execute bool, diskPath string) string {
+func resolveDevicePath(_ bool, diskPath string) string {
 	// If it's not a by-id path, just return it
 	if !strings.Contains(diskPath, "/dev/disk/by-id/") {
 		return diskPath
 	}
 
-	// Handle dry-run mode first
-	if !execute {
-		// In dry-run mode, simulate the resolution based on disk type
-		if strings.Contains(diskPath, "nvme") {
-			log.Printf("Resolved %s to base device path: /dev/nvme0n1 (dry-run mode)", diskPath)
-			return "/dev/nvme0n1"
-		}
-		log.Printf("Resolved %s to base device path: /dev/sda (dry-run mode)", diskPath)
-		return "/dev/sda"
-	}
-
-	// Get the actual device the symlink points to (only in real execution mode)
+	// Always try to resolve the actual device path since readlink is safe.
+	// We pass 'true' for execute to ensure it always runs.
 	deviceOutput, err := utils.Execute(
-		execute,
+		true,
 		utils.ModeStdOut,
 		"readlink",
 		"-f",
 		diskPath,
 	)
+
 	if err == nil {
 		resolvedPath := strings.TrimSpace(deviceOutput)
 		if resolvedPath != "" {
@@ -779,7 +770,8 @@ func resolveDevicePath(execute bool, diskPath string) string {
 		}
 	}
 
-	log.Printf("Warning: could not resolve symlink %s: %v", diskPath, err)
+	// If readlink fails, we can log a warning.
+	log.Printf("Warning: could not resolve symlink %s: %v. Using original path.", diskPath, err)
 	return diskPath // Return original if resolution fails
 }
 
