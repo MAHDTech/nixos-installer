@@ -521,6 +521,63 @@ func partitionZFSDisk(execute bool, diskPath string, diskType string) error {
 		)
 	}
 
+	// After partitioning, we must wait for the partition device to appear.
+	// This is crucial because 'zpool create' will fail if the device node doesn't exist yet.
+	if execute {
+		log.Printf("Waiting for partition on %s to become available...", diskPath)
+
+		// Determine the expected partition path based on the disk type.
+		var expectedPartitionPath string
+		if strings.Contains(diskPath, "nvme") {
+			expectedPartitionPath = fmt.Sprintf("%s-part1", diskPath)
+		} else {
+			expectedPartitionPath = fmt.Sprintf("%s1", diskPath)
+		}
+
+		// Poll for the partition to exist.
+		const maxAttempts = 10
+		const retryDelay = 2 * time.Second
+		var found bool
+		for attempt := 1; attempt <= maxAttempts; attempt++ {
+			// Tell the kernel to re-read the partition table.
+			// We do this in the loop in case it takes a moment to process.
+			_, err := utils.Execute(true, utils.ModeSilent, "partprobe", diskPath)
+			if err != nil {
+				log.Printf(
+					"Warning: partprobe failed on attempt %d for %s: %v",
+					attempt,
+					diskPath,
+					err,
+				)
+			}
+
+			// Check if the partition file exists.
+			if _, err := os.Stat(expectedPartitionPath); err == nil {
+				log.Printf("Partition %s found after attempt %d.", expectedPartitionPath, attempt)
+				found = true
+				break // Success!
+			}
+
+			// If not found, wait before retrying.
+			log.Printf(
+				"Partition %s not yet found. Waiting... (attempt %d/%d)",
+				expectedPartitionPath,
+				attempt,
+				maxAttempts,
+			)
+			time.Sleep(retryDelay)
+		}
+
+		if !found {
+			// If we exit the loop without finding the partition, it's a fatal error.
+			return fmt.Errorf(
+				"partition %s did not appear after %d attempts",
+				expectedPartitionPath,
+				maxAttempts,
+			)
+		}
+	}
+
 	return nil
 }
 
