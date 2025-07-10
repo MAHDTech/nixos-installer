@@ -11,6 +11,7 @@ const (
 	zfsDatasetNixStore   = "nix"
 	zfsDatasetSwap       = "swap"
 	zfsDatasetTmp        = "tmp"
+	zfsDatasetUsr        = "usr"
 	zfsDatasetVar        = "var"
 	zfsDatasetLib        = "var/lib"
 	zfsDatasetDocker     = "var/lib/docker"
