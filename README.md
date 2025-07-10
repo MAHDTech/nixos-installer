@@ -92,13 +92,28 @@ When you pass a simple name without path separators or file extensions:
 
 ```bash
 # Fetches config from main branch
-sudo nix run github:MAHDTech/nixos-installer -- -config HYPERVISOR-1
+sudo nix \
+    --extra-experimental-features nix-command \
+    --extra-experimental-features flakes \
+    run github:MAHDTech/nixos-installer \
+    -- \
+        -config HYPERVISOR-1
 
 # Fetches config from my-feature-branch
-sudo nix run github:MAHDTech/nixos-installer/my-feature-branch -- -config HYPERVISOR-1
+sudo nix \
+    --extra-experimental-features nix-command \
+    --extra-experimental-features flakes \
+    run github:MAHDTech/nixos-installer/my-feature-branch \
+    -- \
+        -config HYPERVISOR-1
 
 # Fetches config from specific commit
-sudo nix run github:MAHDTech/nixos-installer/abc123def -- -config HYPERVISOR-1
+sudo nix \
+    --extra-experimental-features nix-command \
+    --extra-experimental-features flakes \
+    run github:MAHDTech/nixos-installer/abc123def \
+    -- \
+        -config HYPERVISOR-1
 ```
 
 This ensures that the configuration always matches the version of the installer you're running.
