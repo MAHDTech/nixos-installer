@@ -20,27 +20,16 @@ uefi:
   label: ESP
   size: 4GiB
 
-# Settings for the ZFS pools.
+# Settings for the ZFS pool.
 zfs:
-  # Boot pool settings.
-  boot:
-    name: bpool
-    compression: true
-    size: 5G
-    mirror: false
-    stripe: false
-
-  # Root pool settings.
-  root:
+  pool:
     name: zpool
     compression: true
-    encryption: true
-    mirror: false
-    stripe: false
-
-  # ZFS disks used for the pools.
-  disks:
-    - /dev/disk/by-id/nvme-Corsair_MP600_PRO_NH_A5JVB427305AF2
+    size: 0
+    type: single
+    disks:
+      data:
+        - /dev/disk/by-id/nvme-Corsair_MP600_PRO_NH_A5JVB427305AF2
 
 # Settings for the swap partition.
 swap:

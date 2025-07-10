@@ -25,7 +25,6 @@ zfs:
   pool:
     name: zpool
     compression: true
-    encryption: false
     size: 0
     type: single
     disks:
