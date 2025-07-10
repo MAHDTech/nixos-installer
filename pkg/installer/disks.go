@@ -678,32 +678,20 @@ func wipeDisk(execute bool, diskPath string) error {
 		)
 	}
 
-	// Get the real device path
-	resolvedPath, err := utils.Execute(
-		execute,
-		utils.ModeStdOut,
-		"readlink",
-		"-f",
-		diskPath,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to resolve path for %s: %w", diskPath, err)
-	}
-	resolvedPath = strings.TrimSpace(resolvedPath)
-	log.Printf("Resolved %s to %s", diskPath, resolvedPath)
+	// Get the real device path, which handles dry run mode properly
+	resolvedPath := resolveDevicePath(execute, diskPath)
 
 	// After ZFS-specific cleanup, try the standard disk wiping methods
-
 	// Try to wipe with sgdisk
 	_, err = utils.Execute(
 		execute,
 		utils.ModeNormal,
 		"sgdisk",
 		"--zap-all",
-		diskPath,
+		resolvedPath,
 	)
 	if err != nil {
-		log.Printf("Warning: sgdisk --zap-all failed for %s: %v", diskPath, err)
+		log.Printf("Warning: sgdisk --zap-all failed for %s: %v", resolvedPath, err)
 	}
 
 	// Try to wipe with wipefs
@@ -712,10 +700,10 @@ func wipeDisk(execute bool, diskPath string) error {
 		utils.ModeNormal,
 		"wipefs",
 		"--all",
-		diskPath,
+		resolvedPath,
 	)
 	if err != nil {
-		log.Printf("Warning: wipefs failed, trying another method for %s: %v", diskPath, err)
+		log.Printf("Warning: wipefs failed, trying another method for %s: %v", resolvedPath, err)
 
 		// Use dd to wipe the beginning of the disk
 		_, err = utils.Execute(
@@ -723,13 +711,13 @@ func wipeDisk(execute bool, diskPath string) error {
 			utils.ModeNormal,
 			"dd",
 			"if=/dev/zero",
-			"of="+diskPath,
+			"of="+resolvedPath,
 			"bs=1M",
 			"count=32",
 			"conv=fsync",
 		)
 		if err != nil {
-			log.Printf("Warning: dd zeroing failed for %s: %v", diskPath, err)
+			log.Printf("Warning: dd zeroing failed for %s: %v", resolvedPath, err)
 		}
 	}
 
@@ -742,11 +730,11 @@ func wipeDisk(execute bool, diskPath string) error {
 		utils.ModeNormal,
 		"sgdisk",
 		"--clear",
-		diskPath,
+		resolvedPath,
 	)
 	if err != nil {
-		log.Printf("Warning: sgdisk --clear failed for %s: %v", diskPath, err)
-		return fmt.Errorf("failed to clear partition table on %s: %w", diskPath, err)
+		log.Printf("Warning: sgdisk --clear failed for %s: %v", resolvedPath, err)
+		return fmt.Errorf("failed to clear partition table on %s: %w", resolvedPath, err)
 	}
 
 	// Wait for changes to be recognized by the system
