@@ -80,7 +80,7 @@ func Run() error {
 	log.Println("--- Starting Disk Setup Phase ---")
 
 	// Wipe and partition the disks.
-	partitionInfo, err := partitionDisks(*execute, configData)
+	partitionInfo, err := wipeAndPartitionDisks(*execute, configData)
 	if err != nil {
 		return fmt.Errorf("failed during disk partitioning: %w", err)
 	}
@@ -88,10 +88,25 @@ func Run() error {
 	// Users might provide disks in /dev/X format.
 	// We need to convert them to /dev/disk/by-id/X format as
 	// ZFS pools work better with the by-id format.
-	zfsDiskIDs, err := getDiskIDsByID(*execute, configData.ZFS.Disks)
+
+	// Get the disk IDs for the pool.
+	zfsDiskIDsPoolCache, err := getDiskIDsByID(*execute, configData.ZFS.Pool.Disks.Cache)
 	if err != nil {
-		return fmt.Errorf("failed to get ZFS disk IDs: %w", err)
+		return fmt.Errorf("failed to get ZFS disk IDs for the pool cache: %w", err)
 	}
+	zfsDiskIDsPoolLog, err := getDiskIDsByID(*execute, configData.ZFS.Pool.Disks.Log)
+	if err != nil {
+		return fmt.Errorf("failed to get ZFS disk IDs for the pool log: %w", err)
+	}
+	zfsDiskIDsPoolData, err := getDiskIDsByID(*execute, configData.ZFS.Pool.Disks.Data)
+	if err != nil {
+		return fmt.Errorf("failed to get ZFS disk IDs for the pool data: %w", err)
+	}
+	zfsDiskIDsPoolSpare, err := getDiskIDsByID(*execute, configData.ZFS.Pool.Disks.Spare)
+	if err != nil {
+		return fmt.Errorf("failed to get ZFS disk IDs for the pool spare: %w", err)
+	}
+
 	log.Println("--- Disk Setup Phase Complete ---")
 
 	/*
@@ -99,29 +114,32 @@ func Run() error {
 	*/
 	log.Println("--- Starting ZFS Setup Phase ---")
 
-	// Create the ZFS pools and capture the boot and root pool names.
-	zfsPoolBootName, zfsPoolRootName, err := createZFSPool(
+	// Create the ZFS pool.
+	err = createZFSPool(
 		*execute,
 		mountPoint,
-		configData,
-		zfsDiskIDs,
+		configData.ZFS.Pool.Name,
+		configData.ZFS.Pool.Compression,
+		configData.ZFS.Pool.Type,
+		zfsDiskIDsPoolCache,
+		zfsDiskIDsPoolLog,
+		zfsDiskIDsPoolData,
+		zfsDiskIDsPoolSpare,
+		configData.ZFS.Ashift,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create ZFS pool: %w", err)
 	}
-	log.Printf("Created ZFS Boot Pool: %s\n", zfsPoolBootName)
-	log.Printf("Created ZFS Root Pool: %s\n", zfsPoolRootName)
+	log.Printf("Created ZFS Pool: %s\n", configData.ZFS.Pool.Name)
 
-	// Create the ZFS datasets for the boot pool.
-	err = createZFSBootDatasets(*execute, zfsPoolBootName)
+	// Create the ZFS datasets for the pool.
+	err = createZFSDatasets(*execute, configData.ZFS.Pool.Name, configData)
 	if err != nil {
-		return fmt.Errorf("failed to create ZFS boot datasets on pool %s: %w", zfsPoolBootName, err)
-	}
-
-	// Create the ZFS datasets for the root pool.
-	err = createZFSRootDatasets(*execute, zfsPoolRootName, configData)
-	if err != nil {
-		return fmt.Errorf("failed to create ZFS root datasets on pool %s: %w", zfsPoolRootName, err)
+		return fmt.Errorf(
+			"failed to create ZFS datasets on pool %s: %w",
+			configData.ZFS.Pool.Name,
+			err,
+		)
 	}
 
 	log.Println("--- ZFS Setup Phase Complete ---")
@@ -135,8 +153,7 @@ func Run() error {
 		mountPoint,
 		configData,
 		partitionInfo,
-		zfsPoolBootName,
-		zfsPoolRootName,
+		configData.ZFS.Pool.Name,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to mount filesystems: %w", err)

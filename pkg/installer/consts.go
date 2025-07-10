@@ -15,4 +15,5 @@ const (
 	zfsDatasetLib        = "var/lib"
 	zfsDatasetDocker     = "var/lib/docker"
 	zfsDatasetContainers = "var/lib/containers"
+	zfsDatasetIncus      = "var/lib/incus"
 )

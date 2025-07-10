@@ -17,23 +17,21 @@ func mountFileSystems(
 	mountPoint string,
 	configData *config.Config,
 	partitionInfo PartitionInfo,
-	zfsPoolBootName string,
-	zfsPoolRootName string,
+	zfsPoolName string,
 ) error {
 	log.Println("Mounting filesystems...")
 
-	// Define ZFS dataset paths for the boot pool
-	zfsDatasetPathBoot := path.Join(zfsPoolBootName, zfsDatasetBoot)
-
-	// Define ZFS dataset paths for the root pool
-	zfsDatasetPathRoot := path.Join(zfsPoolRootName, zfsDatasetRoot)
-	zfsDatasetPathHome := path.Join(zfsPoolRootName, zfsDatasetHome)
-	zfsDatasetPathNix := path.Join(zfsPoolRootName, zfsDatasetNixStore)
-	zfsDatasetPathVar := path.Join(zfsPoolRootName, zfsDatasetVar)
-	zfsDatasetPathLib := path.Join(zfsPoolRootName, zfsDatasetLib)
-	zfsDatasetPathDocker := path.Join(zfsPoolRootName, zfsDatasetDocker)
-	zfsDatasetPathContainers := path.Join(zfsPoolRootName, zfsDatasetContainers)
-	zfsDatasetPathTmp := path.Join(zfsPoolRootName, zfsDatasetTmp)
+	// Define ZFS dataset paths
+	zfsDatasetPathBoot := path.Join(zfsPoolName, zfsDatasetBoot)
+	zfsDatasetPathRoot := path.Join(zfsPoolName, zfsDatasetRoot)
+	zfsDatasetPathHome := path.Join(zfsPoolName, zfsDatasetHome)
+	zfsDatasetPathNix := path.Join(zfsPoolName, zfsDatasetNixStore)
+	zfsDatasetPathVar := path.Join(zfsPoolName, zfsDatasetVar)
+	zfsDatasetPathLib := path.Join(zfsPoolName, zfsDatasetLib)
+	zfsDatasetPathDocker := path.Join(zfsPoolName, zfsDatasetDocker)
+	zfsDatasetPathContainers := path.Join(zfsPoolName, zfsDatasetContainers)
+	zfsDatasetPathIncus := path.Join(zfsPoolName, zfsDatasetIncus)
+	zfsDatasetPathTmp := path.Join(zfsPoolName, zfsDatasetTmp)
 
 	// 1. Mount the root dataset to the configured altroot
 	//    Example: /mnt/nixos + "/"
@@ -141,7 +139,14 @@ func mountFileSystems(
 		return fmt.Errorf("failed to mount containers filesystem: %w", err)
 	}
 
-	// 11. Mount the tmp dataset to the configured altroot
+	// 11. Mount the incus dataset to the configured altroot
+	//     Example: /mnt/nixos + "/var/lib/incus"
+	err = mountZFSDataset(execute, zfsDatasetPathIncus)
+	if err != nil {
+		return fmt.Errorf("failed to mount incus filesystem: %w", err)
+	}
+
+	// 12. Mount the tmp dataset to the configured altroot
 	//     Example: /mnt/nixos + "/tmp"
 	mountPointTmp := path.Join(mountPoint, "tmp")
 	err = mountZFSDataset(execute, zfsDatasetPathTmp)
@@ -149,7 +154,7 @@ func mountFileSystems(
 		return fmt.Errorf("failed to mount tmp filesystem: %w", err)
 	}
 
-	// 12. Set permissions for /tmp
+	// 13. Set permissions for /tmp
 	log.Printf("Setting permissions for %s\n", mountPointTmp)
 	_, err = utils.Execute(
 		execute,

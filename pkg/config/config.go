@@ -54,30 +54,31 @@ type Config struct {
 	 This section defines settings for the ZFS pool and associated disks.
 	*/
 	ZFS struct {
-
 		// Configuration settings.
 		Ashift int `yaml:"ashift" default:"12"`
 
-		// ZFS Boot Pool configuration.
-		BootPool struct {
-			Name        string `yaml:"name" default:"bpool"`
-			Compression bool   `yaml:"compression" default:"true"`
-			Size        string `yaml:"size" validate:"required" default:"5G"`
-			Mirror      bool   `yaml:"mirror" default:"false"`
-			Stripe      bool   `yaml:"stripe" default:"false"`
-		} `yaml:"boot" validate:"required"`
+		// ZFS Pool configuration.
+		Pool struct {
+			Name string `yaml:"name" default:"zpool"`
 
-		// ZFS Root Pool configuration.
-		RootPool struct {
-			Name        string `yaml:"name" default:"zpool"`
-			Compression bool   `yaml:"compression" default:"true"`
-			Encryption  bool   `yaml:"encryption" default:"false"`
-			Mirror      bool   `yaml:"mirror" default:"false"`
-			Stripe      bool   `yaml:"stripe" default:"false"`
-		} `yaml:"root" validate:"required"`
+			Compression bool `yaml:"compression" default:"true"`
 
-		// ZFS Disks configuration.
-		Disks []string `yaml:"disks" validate:"required"`
+			// Type can be: single, mirror, stripe, raidz, raidz2, raidz3
+			Type string `yaml:"type" default:"single"`
+
+			// Size for the pool (0 means auto-size)
+			Size string `yaml:"size" default:"0"`
+
+			// Encryption for the pool
+			Encryption bool `yaml:"encryption" default:"false"`
+
+			Disks struct {
+				Cache []string `yaml:"cache"`
+				Log   []string `yaml:"log"`
+				Data  []string `yaml:"data" validate:"required"`
+				Spare []string `yaml:"spare"`
+			} `yaml:"disks" validate:"required"`
+		} `yaml:"pool" validate:"required"`
 	} `yaml:"zfs" validate:"required"`
 
 	/*
@@ -171,6 +172,18 @@ func applyDefaults(config *Config) {
 		config.ZFS.Ashift = 12
 		log.Printf("Warning: ZFS ashift value not specified, defaulting to 12 (4K sectors)")
 	}
+
+	// ZFS pool type
+	if config.ZFS.Pool.Type == "" {
+		config.ZFS.Pool.Type = "single"
+		log.Printf("Warning: ZFS pool type not specified, defaulting to 'single'")
+	}
+
+	// ZFS pool size
+	if config.ZFS.Pool.Size == "" {
+		config.ZFS.Pool.Size = "0"
+		log.Printf("Warning: ZFS pool size not specified, defaulting to auto-size (0)")
+	}
 }
 
 // validateConfig performs custom validation checks not covered by struct tags.
@@ -181,10 +194,25 @@ func validateConfig(configData *Config) error {
 		return fmt.Errorf("invalid UEFI block device: %s", configData.UEFI.Disk)
 	}
 
-	// Check if the root disks are valid block devices.
-	for _, rootDisk := range configData.ZFS.Disks {
-		if !utils.IsValidBlockDevice(rootDisk) {
-			return fmt.Errorf("invalid ZFS block device: %s", rootDisk)
+	// Check if all ZFS disks are valid block devices.
+	for _, disk := range configData.ZFS.Pool.Disks.Data {
+		if !utils.IsValidBlockDevice(disk) {
+			return fmt.Errorf("invalid ZFS data disk: %s", disk)
+		}
+	}
+	for _, disk := range configData.ZFS.Pool.Disks.Cache {
+		if !utils.IsValidBlockDevice(disk) {
+			return fmt.Errorf("invalid ZFS cache disk: %s", disk)
+		}
+	}
+	for _, disk := range configData.ZFS.Pool.Disks.Log {
+		if !utils.IsValidBlockDevice(disk) {
+			return fmt.Errorf("invalid ZFS log disk: %s", disk)
+		}
+	}
+	for _, disk := range configData.ZFS.Pool.Disks.Spare {
+		if !utils.IsValidBlockDevice(disk) {
+			return fmt.Errorf("invalid ZFS spare disk: %s", disk)
 		}
 	}
 
@@ -196,25 +224,78 @@ func validateConfig(configData *Config) error {
 		)
 	}
 
-	// If there is more than disk, are we mirroring or striping the boot and root pools?
-	if len(configData.ZFS.Disks) > 1 {
+	// ZFS pool type validation
+	validTypes := []string{"single", "mirror", "stripe", "raidz", "raidz2", "raidz3"}
+	typeValid := false
+	for _, validType := range validTypes {
+		if configData.ZFS.Pool.Type == validType {
+			typeValid = true
+			break
+		}
+	}
+	if !typeValid {
+		return fmt.Errorf(
+			"invalid ZFS pool type: %s. Must be one of: %v",
+			configData.ZFS.Pool.Type,
+			validTypes,
+		)
+	}
 
-		// Boot pool
-		if configData.ZFS.BootPool.Mirror && configData.ZFS.BootPool.Stripe {
-			return errors.New("can't mirror and stripe the boot pool, pick one")
-		}
-		if !configData.ZFS.BootPool.Mirror && !configData.ZFS.BootPool.Stripe {
-			return errors.New("must mirror or stripe the boot pool with multiple disks, pick one")
-		}
+	// Validate pool configuration based on type and number of data disks
+	dataDiskCount := len(configData.ZFS.Pool.Disks.Data)
+	if dataDiskCount == 0 {
+		return errors.New("at least one data disk is required for ZFS pool")
+	}
 
-		// Root pool
-		if configData.ZFS.RootPool.Mirror && configData.ZFS.RootPool.Stripe {
-			return errors.New("can't mirror and stripe the root pool, pick one")
+	switch configData.ZFS.Pool.Type {
+	case "single":
+		if dataDiskCount != 1 {
+			return fmt.Errorf(
+				"single pool type requires exactly 1 data disk, got %d",
+				dataDiskCount,
+			)
 		}
-		if !configData.ZFS.RootPool.Mirror && !configData.ZFS.RootPool.Stripe {
-			return errors.New("must mirror or stripe the root pool with multiple disks, pick one")
+	case "mirror":
+		if dataDiskCount < 2 {
+			return fmt.Errorf(
+				"mirror pool type requires at least 2 data disks, got %d",
+				dataDiskCount,
+			)
 		}
-
+		if dataDiskCount%2 != 0 {
+			return fmt.Errorf(
+				"mirror pool type requires an even number of data disks, got %d",
+				dataDiskCount,
+			)
+		}
+	case "stripe":
+		if dataDiskCount < 1 {
+			return fmt.Errorf(
+				"stripe pool type requires at least 1 data disk, got %d",
+				dataDiskCount,
+			)
+		}
+	case "raidz":
+		if dataDiskCount < 3 {
+			return fmt.Errorf(
+				"raidz pool type requires at least 3 data disks, got %d",
+				dataDiskCount,
+			)
+		}
+	case "raidz2":
+		if dataDiskCount < 4 {
+			return fmt.Errorf(
+				"raidz2 pool type requires at least 4 data disks, got %d",
+				dataDiskCount,
+			)
+		}
+	case "raidz3":
+		if dataDiskCount < 5 {
+			return fmt.Errorf(
+				"raidz3 pool type requires at least 5 data disks, got %d",
+				dataDiskCount,
+			)
+		}
 	}
 
 	return nil

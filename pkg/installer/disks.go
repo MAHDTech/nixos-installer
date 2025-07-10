@@ -25,8 +25,7 @@ const (
 type PartitionInfo struct {
 	UEFI        string   // UEFI/ESP partition
 	NixOSConfig string   // NixOS configuration partition
-	ZFSBoot     []string // ZFS boot partitions can be one or more
-	ZFSData     []string // ZFS data/root partitions can be one or more
+	ZFSPool     []string // ZFS pool disks
 }
 
 //nolint:gocyclo // unmountDisks unmounts all partitions on the specified disks in the config.
@@ -188,7 +187,13 @@ func unmountDisks(execute bool, configData *config.Config) error {
 	}
 
 	// Get all mountpoints for the ZFS disks and append them to the mountPoints slice
-	for _, zfsDisk := range configData.ZFS.Disks {
+	var allZFSDisks []string
+	allZFSDisks = append(allZFSDisks, configData.ZFS.Pool.Disks.Cache...)
+	allZFSDisks = append(allZFSDisks, configData.ZFS.Pool.Disks.Log...)
+	allZFSDisks = append(allZFSDisks, configData.ZFS.Pool.Disks.Data...)
+	allZFSDisks = append(allZFSDisks, configData.ZFS.Pool.Disks.Spare...)
+
+	for _, zfsDisk := range allZFSDisks {
 
 		log.Printf("Checking for mountpoints on ZFS disk: %s", zfsDisk)
 
@@ -219,19 +224,17 @@ func unmountDisks(execute bool, configData *config.Config) error {
 	return nil
 }
 
-// partitionDisks handles partitioning the specified disks according to the configuration.
-// Returns partition info and an error if any partitioning step fails.
-func partitionDisks(
+// wipeAndPartitionDisks handles wiping and partitioning the specified disks according to the configuration.
+// Returns partition info and an error if any step fails.
+func wipeAndPartitionDisks(
 	execute bool,
 	configData *config.Config,
-) (PartitionInfo, error) {
+) (partitionInfo PartitionInfo, err error) {
 	partInfo := PartitionInfo{
 		UEFI:        "",
 		NixOSConfig: "",
-		ZFSBoot:     []string{},
-		ZFSData:     []string{},
+		ZFSPool:     []string{},
 	}
-	var err error
 
 	log.Println("--- Partitioning Disks ---")
 
@@ -272,30 +275,42 @@ func partitionDisks(
 	/*
 	 --- ZFS Disks ---
 
-	 Each ZFS disk is partitioned into a boot and data partition.
-
-	 In a stripe or mirror configuration, the boot and data partitions are created on each disk.
+	 Each ZFS disk is wiped in preparation for adding to the pool.
 	*/
-	for index, zfsDisk := range configData.ZFS.Disks {
-		bootPart, dataPart, err := partitionZFSDisk(execute, zfsDisk, index, configData)
+
+	// Wipe any cache disks.
+	for _, cacheDisk := range configData.ZFS.Pool.Disks.Cache {
+		err = wipeDisk(execute, cacheDisk)
 		if err != nil {
-			return PartitionInfo{}, fmt.Errorf(
-				"failed to partition ZFS disk %s: %w",
-				zfsDisk,
-				err,
-			)
+			return PartitionInfo{}, fmt.Errorf("failed to wipe cache disk %s: %w", cacheDisk, err)
 		}
-		partInfo.ZFSBoot = append(partInfo.ZFSBoot, bootPart)
-		partInfo.ZFSData = append(partInfo.ZFSData, dataPart)
 	}
 
-	// Sleep briefly to allow the kernel to recognize new partitions
-	if execute {
-		log.Println("Waiting 5 seconds for partitions to settle...")
-		time.Sleep(5 * time.Second)
+	// Wipe any log disks.
+	for _, logDisk := range configData.ZFS.Pool.Disks.Log {
+		err = wipeDisk(execute, logDisk)
+		if err != nil {
+			return PartitionInfo{}, fmt.Errorf("failed to wipe log disk %s: %w", logDisk, err)
+		}
 	}
 
-	log.Println("--- Disk Partitioning Complete ---")
+	// Wipe any data disks.
+	for _, dataDisk := range configData.ZFS.Pool.Disks.Data {
+		err = wipeDisk(execute, dataDisk)
+		if err != nil {
+			return PartitionInfo{}, fmt.Errorf("failed to wipe data disk %s: %w", dataDisk, err)
+		}
+	}
+
+	// Wipe any spare disks.
+	for _, spareDisk := range configData.ZFS.Pool.Disks.Spare {
+		err = wipeDisk(execute, spareDisk)
+		if err != nil {
+			return PartitionInfo{}, fmt.Errorf("failed to wipe spare disk %s: %w", spareDisk, err)
+		}
+	}
+
+	log.Println("--- Disk Wiping Complete ---")
 	return partInfo, nil
 }
 
@@ -443,86 +458,6 @@ func partitionNixOSConfigDisk(
 	return partitionNameNixOSConfig, nil
 }
 
-// partitionZFSDisk handles partitioning for a single ZFS disk.
-// Returns ZFS boot and data partition names or an error.
-func partitionZFSDisk(
-	execute bool,
-	zfsDisk string,
-	index int,
-	configData *config.Config,
-) (partitionNameZFSBoot string, partitionNameZFSData string, err error) {
-	partitionNumberZFSBoot := 1
-	partitionNumberZFSData := 2
-	partitionNameZFSBoot = fmt.Sprintf("%s-part%d", zfsDisk, partitionNumberZFSBoot)
-	partitionNameZFSData = fmt.Sprintf("%s-part%d", zfsDisk, partitionNumberZFSData)
-
-	log.Printf("Partitioning ZFS disk %d: %s\n", index+1, zfsDisk)
-
-	// Wipe the disk
-	err = wipeDisk(execute, zfsDisk)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to wipe disk %s: %w", zfsDisk, err)
-	}
-
-	// Create the ZFS boot partition with the configured size.
-	_, err = utils.Execute(
-		execute,
-		utils.ModeNormal,
-		"sgdisk",
-		fmt.Sprintf(
-			"--new=%d:1M:%s",
-			partitionNumberZFSBoot,
-			configData.ZFS.BootPool.Size,
-		),
-		fmt.Sprintf("--typecode=%d:be00", partitionNumberZFSBoot),                   // Solaris Boot
-		fmt.Sprintf("--change-name=%d:zfsboot-%d", partitionNumberZFSBoot, index+1), // Unique name
-		zfsDisk,
-	)
-	if err != nil {
-		return "", "", fmt.Errorf(
-			"sgdisk --new (ZFS boot partition) failed for %s: %w",
-			zfsDisk,
-			err,
-		)
-	}
-
-	// Create the ZFS root partition with all remaining space.
-	_, err = utils.Execute(
-		execute,
-		utils.ModeNormal,
-		"sgdisk",
-		fmt.Sprintf("--new=%d:0:0", partitionNumberZFSData),
-		fmt.Sprintf("--typecode=%d:bf00", partitionNumberZFSData),                   // Solaris Root
-		fmt.Sprintf("--change-name=%d:zfsroot-%d", partitionNumberZFSData, index+1), // Unique name
-		zfsDisk,
-	)
-	if err != nil {
-		return "", "", fmt.Errorf(
-			"sgdisk --new (ZFS root partition) failed for %s: %w",
-			zfsDisk,
-			err,
-		)
-	}
-
-	// Print the partition table.
-	_, err = utils.Execute(
-		execute,
-		utils.ModeNormal,
-		"sgdisk",
-		"--print="+zfsDisk,
-	)
-	if err != nil {
-		// Log print error but don't fail the whole operation
-		log.Printf(
-			"Warning: sgdisk --print failed for ZFS disk %s after partitioning: %v",
-			zfsDisk,
-			err,
-		)
-	}
-
-	return partitionNameZFSBoot, partitionNameZFSData, nil
-}
-
 // findDiskIDByID finds the canonical /dev/disk/by-id path for a single disk.
 // It resolves the input path to a base device and searches for a matching by-id link.
 func findDiskIDByID(execute bool, diskPath string) (string, error) {
@@ -627,6 +562,7 @@ func findDiskIDByID(execute bool, diskPath string) (string, error) {
 
 // getDiskIDsByID finds the canonical /dev/disk/by-id/ paths for the given disk paths.
 // It replaces the old getZFSDiskIDs function.
+// If the provided diskPaths is empty, will return an empty string.
 func getDiskIDsByID(execute bool, diskPaths []string) ([]string, error) {
 	log.Println("--- Retrieving Disk IDs by /dev/disk/by-id ---")
 	diskIDs := make([]string, len(diskPaths))
@@ -723,7 +659,7 @@ func wipeDisk(execute bool, diskPath string) error {
 			"if=/dev/zero",
 			"of="+diskPath,
 			"bs=1M",
-			"count=32", // Increased from 8 to 32MB
+			"count=32",
 			"conv=fsync",
 		)
 		if err != nil {
