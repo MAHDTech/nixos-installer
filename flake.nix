@@ -17,18 +17,19 @@
           pkgs = nixpkgs.legacyPackages."${system}";
         in
         {
-          defaultPackage = pkgs.stdenv.mkDerivation {
-            name = "nixos-installer";
+          defaultPackage = pkgs.buildGoModule {
+            pname = "nixos-installer";
+            version = "0.1.0";
             src = ./.;
-            buildPhase = ''
-              HOME=$TMPDIR
-              ${pkgs.go}/bin/go build -o nixos-installer main.go
-
-            '';
-            installPhase = ''
-              mkdir -p $out/bin
-              mv nixos-installer $out/bin
-            '';
+            vendorHash = null;
+            env.CGO_ENABLED = "0";
+            ldflags = [
+              "-s"
+              "-w"
+            ];
+            GOPROXY = "off";
+            GOSUMDB = "off";
+            inherit (pkgs) go;
           };
         };
     in
