@@ -12,7 +12,7 @@ nixos:
 
   # The NixOS configuration partition on the uefi disk.
   config:
-    enabled: true
+    enabled: false
 
 # Settings for the UEFI partition.
 uefi:

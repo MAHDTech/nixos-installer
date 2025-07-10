@@ -780,14 +780,19 @@ func resolveDevicePath(execute bool, diskPath string) string {
 		}
 	}
 
-	// Handle dry-run mode
+	// Handle dry-run mode or failed resolution
 	if !execute {
-		log.Printf("Dry run mode: Disks may not be resolved correctly.")
-	} else {
-		log.Printf("Warning: could not resolve symlink %s: %v", diskPath, err)
+		// In dry-run mode, simulate the resolution based on disk type
+		if strings.Contains(diskPath, "nvme") {
+			log.Printf("Resolved %s to base device path: /dev/nvme0n1 (dry-run mode)", diskPath)
+			return "/dev/nvme0n1"
+		}
+		log.Printf("Resolved %s to base device path: /dev/sda (dry-run mode)", diskPath)
+		return "/dev/sda"
 	}
 
-	return diskPath
+	log.Printf("Warning: could not resolve symlink %s: %v", diskPath, err)
+	return diskPath // Return original if resolution fails
 }
 
 // findPartitionDevicePath tries multiple strategies to find a usable device path for a partition
