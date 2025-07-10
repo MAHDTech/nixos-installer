@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"strings"
 	"time"
 
 	config "github.com/MAHDTech/nixos-installer/pkg/config"
@@ -337,30 +336,9 @@ func createZFSDatasets(
 			zfsDatasetPathSwap,
 			configData.Swap.Size,
 		)
-		// Get system page size for volblocksize
-		pageSize, err := utils.Execute(
-			execute,
-			utils.ModeStdOut,
-			"getconf",
-			"PAGESIZE",
-		)
-		if err != nil {
-			log.Printf(
-				"Warning: Could not determine page size via getconf: %v. Defaulting to 16k for swap volblocksize.",
-				err,
-			)
-			pageSize = "16384"
-		} else {
-			pageSize = strings.TrimSpace(pageSize)
-		}
-
-		// Make sure the page size is not empty and at least 16k
-		if pageSize == "" || pageSize < "16384" {
-			log.Println(
-				"Warning: Could not determine page size or it was less than 16k, defaulting to 16k for swap volblocksize.",
-			)
-			pageSize = "16384"
-		}
+		// Use a 16k block size for swap, as recommended by ZFS documentation
+		// for better performance and to avoid wasted space.
+		const swapVolBlockSize = "16k"
 
 		// Create the swap ZFS volume
 		_, err = utils.Execute(
@@ -371,7 +349,7 @@ func createZFSDatasets(
 			"-V",
 			configData.Swap.Size,
 			"-b",
-			pageSize,
+			swapVolBlockSize,
 			"-o", "compression=zle", // Different compression for swap
 			"-o", "logbias=throughput",
 			"-o", "sync=always",

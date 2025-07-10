@@ -773,8 +773,10 @@ func wipeDisk(execute bool, diskPath string) error {
 		}
 	}
 
-	// Give a moment for kernel to recognize changes
-	time.Sleep(2 * time.Second)
+	// Tell udev to settle down to ensure the kernel recognizes the wipe.
+	if _, settleErr := utils.Execute(execute, utils.ModeNormal, "udevadm", "settle"); settleErr != nil {
+		log.Printf("Warning: udevadm settle after wipe failed for %s: %v", resolvedPath, settleErr)
+	}
 
 	// Use sgdisk to create a new GPT
 	_, err = utils.Execute(
@@ -789,9 +791,11 @@ func wipeDisk(execute bool, diskPath string) error {
 		return fmt.Errorf("failed to clear partition table on %s: %w", resolvedPath, err)
 	}
 
-	// Wait for changes to be recognized by the system
+	// Wait for changes to be recognized by the system by settling udev.
 	log.Println("Waiting for disk changes to be recognized...")
-	time.Sleep(5 * time.Second)
+	if _, settleErr := utils.Execute(execute, utils.ModeNormal, "udevadm", "settle"); settleErr != nil {
+		log.Printf("Warning: udevadm settle after clear failed for %s: %v", resolvedPath, settleErr)
+	}
 
 	return nil
 }
