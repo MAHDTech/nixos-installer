@@ -1,7 +1,7 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    sysutil.url = "github:numtide/flake-utils";
+    utils.url = "github:numtide/flake-utils";
   };
 
   outputs =
@@ -55,6 +55,6 @@
           };
         };
     in
-    with sysutil.lib;
+    with utils.lib;
     eachSystem defaultSystems out;
 }
