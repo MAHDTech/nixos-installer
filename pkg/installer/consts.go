@@ -33,4 +33,5 @@ var requiredTools = []string{
 	"udevadm",
 	"dd",
 	"chmod",
+	"chicken-foot",
 }
