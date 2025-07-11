@@ -22,25 +22,13 @@ uefi:
 
 # Settings for the ZFS pools.
 zfs:
-  # Boot pool settings.
-  boot:
-    name: bpool
-    compression: true
-    size: 1G
-    mirror: false
-    stripe: false
-
-  # Data pool settings.
-  root:
+  pool:
     name: zpool
     compression: true
-    encryption: false
-    mirror: false
-    stripe: false
-
-  # ZFS disks used for the pools.
-  disks:
-    - /dev/disk/by-path/pci-0000:02:00.0-scsi-0:0:1:0
+    type: single
+    disks:
+      data:
+        - /dev/disk/by-path/pci-0000:02:00.0-scsi-0:0:1:0
 
 # Settings for the swap partition.
 swap:

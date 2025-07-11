@@ -22,7 +22,7 @@ func main() {
 
 		// Logging flags
 		logFile      = flag.String("log-file", "nixos-installer.log", "Path to log file")
-		consoleLevel = flag.String("console-level", "INFO", "Console log level (DEBUG, INFO, WARN, ERROR)")
+		consoleLevel = flag.String("console-level", "WARN", "Console log level (DEBUG, INFO, WARN, ERROR)")
 		fileLevel    = flag.String("file-level", "DEBUG", "File log level (DEBUG, INFO, WARN, ERROR)")
 
 		// Help flag
