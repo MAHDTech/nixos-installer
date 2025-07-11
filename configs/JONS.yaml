@@ -36,5 +36,4 @@ zfs:
 
 # Settings for the swap partition.
 swap:
-  enabled: true
-  size: 69GiB
+  enabled: false

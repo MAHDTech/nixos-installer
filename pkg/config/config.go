@@ -82,10 +82,10 @@ type Config struct {
 			Encryption bool `yaml:"encryption" default:"false"`
 
 			Disks struct {
-				Cache []string `yaml:"cache"`
-				Log   []string `yaml:"log"`
+				Cache []string `yaml:"cache" default:"[]"`
+				Log   []string `yaml:"log" default:"[]"`
 				Data  []string `yaml:"data" validate:"required"`
-				Spare []string `yaml:"spare"`
+				Spare []string `yaml:"spare" default:"[]"`
 			} `yaml:"disks" validate:"required"`
 		} `yaml:"pool" validate:"required"`
 	} `yaml:"zfs" validate:"required"`
