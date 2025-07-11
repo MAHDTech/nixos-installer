@@ -4,6 +4,7 @@ package sysutil
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 )
@@ -18,6 +19,8 @@ const (
 	ModeSilent
 	// ModeStdOut captures and returns stdout from the command
 	ModeStdOut
+	// ModeStdErr captures and returns stderr from the command
+	ModeStdErr
 )
 
 // Execute function will execute a command with the specified mode.
@@ -40,6 +43,9 @@ func Execute(
 	// Configure command IO based on mode
 	if mode == ModeStdOut {
 		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+	} else if mode == ModeStdErr {
+		cmd.Stdout = os.Stdout
 		cmd.Stdin = os.Stdin
 	} else {
 		cmd.Stdout = os.Stdout
@@ -82,6 +88,30 @@ func Execute(
 			)
 		}
 		return string(output), nil
+
+	case ModeStdErr:
+		// Capture stderr by redirecting it to a pipe
+		stderr, err := cmd.StderrPipe()
+		if err != nil {
+			return "", fmt.Errorf("failed to create stderr pipe: %w", err)
+		}
+
+		if err := cmd.Start(); err != nil {
+			return "", fmt.Errorf("failed to start command %s: %w", cmd.String(), err)
+		}
+
+		// Read stderr
+		stderrBytes, err := io.ReadAll(stderr)
+		if err != nil {
+			return "", fmt.Errorf("failed to read stderr: %w", err)
+		}
+
+		// Wait for command to complete
+		if err := cmd.Wait(); err != nil {
+			return string(stderrBytes), fmt.Errorf("failed to execute command %s: %w", cmd.String(), err)
+		}
+
+		return string(stderrBytes), nil
 	}
 
 	// This should never happen if the mode is valid

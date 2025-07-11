@@ -250,11 +250,13 @@ func Failure(format string, args ...interface{}) {
 // Section prints a section header with blue color
 func Section(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
-	fmt.Printf("\n\033[34m=== %s ===\033[0m\n", message)
+	fmt.Printf("\n\n\033[34m=========================\033[0m\n")
+	fmt.Printf("\033[34m=== %s ===\033[0m\n", message)
+	fmt.Printf("\n\033[34m=========================\033[0m\n\n")
 }
 
 // SubSection prints a subsection header with cyan color
 func SubSection(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
-	fmt.Printf("\033[36m--- %s ---\033[0m\n", message)
+	fmt.Printf("\n\033[36m--- %s ---\033[0m\n\n", message)
 }

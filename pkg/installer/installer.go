@@ -35,36 +35,36 @@ func Run(configFile string, execute bool, executeInstall bool) error {
 	// Execute installation phases
 	sysutil.Info("Starting installation phases...")
 
-	progress.Increment()
 	if err := runPreparationPhase(execute, configData); err != nil {
 		return err
 	}
-
 	progress.Increment()
+
 	partitionInfo, err := runDiskSetupPhase(execute, configData)
 	if err != nil {
 		return err
 	}
-
 	progress.Increment()
+
 	if err := runZFSSetupPhase(execute, configData); err != nil {
 		return err
 	}
-
 	progress.Increment()
+
 	if err := runMountingPhase(execute, configData, partitionInfo); err != nil {
 		return err
 	}
-
 	progress.Increment()
+
 	if err := runNixOSConfigurationPhase(execute); err != nil {
 		return err
 	}
-
 	progress.Increment()
+
 	if err := runNixOSInstallationPhase(execute, executeInstall, configData); err != nil {
 		return err
 	}
+	progress.Increment()
 
 	progress.Complete()
 	sysutil.Success("NixOS installation process completed successfully")

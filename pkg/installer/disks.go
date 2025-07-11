@@ -92,30 +92,34 @@ func unmountDisks(execute bool, configData *config.Config) error {
 						continue
 					}
 					sysutil.Info("Unmounting dataset: %s", dataset)
-					_, unmountErr := sysutil.Execute(
+					stderr, unmountErr := sysutil.Execute(
 						execute,
-						sysutil.ModeNormal,
+						sysutil.ModeStdErr,
 						"zfs",
 						"unmount",
 						dataset,
 					)
 					if unmountErr != nil {
-						sysutil.Warn("Failed to unmount dataset %s: %v", dataset, unmountErr)
+						if stderr != "" {
+							sysutil.Warn("Failed to unmount dataset %s: %s", dataset, strings.TrimSpace(stderr))
+						} else {
+							sysutil.Warn("Failed to unmount dataset %s: %v", dataset, unmountErr)
+						}
 						// Try force unmount if regular unmount fails
-						_, forceErr := sysutil.Execute(
+						forceStderr, forceErr := sysutil.Execute(
 							execute,
-							sysutil.ModeNormal,
+							sysutil.ModeStdErr,
 							"zfs",
 							"unmount",
 							"-f",
 							dataset,
 						)
 						if forceErr != nil {
-							sysutil.Warn(
-								"Force unmount also failed for %s: %v",
-								dataset,
-								forceErr,
-							)
+							if forceStderr != "" {
+								sysutil.Warn("Force unmount also failed for %s: %s", dataset, strings.TrimSpace(forceStderr))
+							} else {
+								sysutil.Warn("Force unmount also failed for %s: %v", dataset, forceErr)
+							}
 						}
 					}
 				}
@@ -1055,16 +1059,20 @@ func cleanZFSDisk(execute bool, diskPath string) error {
 	}
 
 	// Step 2: Try the ZFS labelclear command
-	_, err = sysutil.Execute(
+	stderr, err := sysutil.Execute(
 		execute,
-		sysutil.ModeNormal,
+		sysutil.ModeStdErr,
 		"zpool",
 		"labelclear",
 		"-f",
 		diskPath,
 	)
 	if err != nil {
-		sysutil.Warn("zpool labelclear failed for %s: %v", diskPath, err)
+		if stderr != "" {
+			sysutil.Warn("zpool labelclear failed for %s: %s", diskPath, strings.TrimSpace(stderr))
+		} else {
+			sysutil.Warn("zpool labelclear failed for %s: %v", diskPath, err)
+		}
 	}
 
 	// Step 3: Force destroy any remaining pools on this disk
@@ -1150,16 +1158,20 @@ func forceUnmountMountpoints(execute bool) error {
 				if strings.HasPrefix(mountpointFound, mountPoint) {
 					sysutil.Info("Force unmounting: %s", mountpointFound)
 					// Use Linux umount with force and detach options
-					_, err := sysutil.Execute(
+					stderr, err := sysutil.Execute(
 						execute,
-						sysutil.ModeNormal,
+						sysutil.ModeStdErr,
 						"umount",
 						"-f",
 						"-l",
 						mountpointFound,
 					)
 					if err != nil {
-						sysutil.Warn("Failed to force unmount %s: %v", mountpointFound, err)
+						if stderr != "" {
+							sysutil.Warn("Failed to force unmount %s: %s", mountpointFound, strings.TrimSpace(stderr))
+						} else {
+							sysutil.Warn("Failed to force unmount %s: %v", mountpointFound, err)
+						}
 					}
 				}
 			}
