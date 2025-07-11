@@ -4,6 +4,7 @@ package sysutil
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // Device represents a block device with mountpoints
@@ -27,10 +28,26 @@ func GetMountpoints(deviceID string, data []byte) ([]string, error) {
 		return nil, fmt.Errorf("failed to parse block device JSON: %w", err)
 	}
 
+	// Normalize the device ID for comparison
+	// Remove /dev/disk/by-id/ prefix if present
+	normalizedDeviceID := deviceID
+	if strings.HasPrefix(deviceID, "/dev/disk/by-id/") {
+		normalizedDeviceID = strings.TrimPrefix(deviceID, "/dev/disk/by-id/")
+	}
+
 	// Find the device with the matching ID
 	var deviceIDFromJSON string
 	for _, device := range blockDevices.Blockdevices {
-		if device.ID == deviceID {
+		// Skip if device.ID is null
+		if device.ID == "" {
+			continue
+		}
+
+		// Normalize the device ID from JSON for comparison
+		normalizedJSONID := strings.TrimSpace(device.ID)
+
+		// Check for exact match or if the normalized device ID contains the JSON ID
+		if normalizedJSONID == normalizedDeviceID || strings.Contains(normalizedJSONID, normalizedDeviceID) {
 			deviceIDFromJSON = device.ID
 			Debug("Checking device ID %s for mountpoints", deviceIDFromJSON)
 			if device.Mountpoints != nil {
