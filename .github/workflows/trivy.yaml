@@ -1,38 +1,44 @@
 ---
 ##################################################
-# Name: devenv.yaml
-# Description: Workflow for Developer Environment Testing
+# Name: trivy.yaml
+# Description: Workflow for Trivy
 ##################################################
 
-name: Devenv
+##################################################
+# NOTES:
+#       This workflow integrates Trivy with GitHub's code scanning feature.
+#       Trivy is a simple and comprehensive vulnerability scanner from Aqua Security.
+#       Visit https://github.com/aquasecurity/trivy for further information
+#
+##################################################
+
+name: Trivy
 
 # prettier-ignore
 on:  # yamllint disable-line rule:truthy
+  schedule:
+    - cron: "0 0 * * *"
   pull_request:
     branches:
       - "main"
       - "master"
       - "trunk"
-    paths:
-      - .github/workflows/devenv.yaml
-      - devenv.nix
-      - devenv.yaml
-      - devenv.lock
-      - devenv/**
-      - src/**
-    paths_ignore:
+    paths-ignore:
       - "docs/**"
-      - "**.md"
+      - "*.md"
+      - "**/*.md"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
+  packages: read
   pull-requests: write
   statuses: write
+  security-events: write
+  actions: read
 
 env:
   # GitHub
@@ -49,11 +55,11 @@ defaults:
 
 jobs:
   ##################################################
-  # Test the Development environment shell
+  # Run Trivy and upload results to GitHub Security.
   ##################################################
 
-  test:
-    name: Test
+  scan:
+    name: Trivy Scan
 
     runs-on: ${{ matrix.os }}
 
@@ -96,25 +102,38 @@ jobs:
         run: |
           nix profile install --accept-flake-config nixpkgs#devenv
 
-      - id: devenv_test
-        name: Devenv test
-        run: |
-          devenv test
+      - id: trivy_filesystem
+        name: Trivy filesystem scan (SARIF)
+        shell: devenv shell --quiet bash -- -e {0}
+        run: >
+          trivy
+          filesystem
+          --scanners vuln,misconfig,secret,license
+          --format sarif
+          --output trivy-results.sarif
+          --exit-code 0
+          .
 
-      - id: devenv_status
-        name: Devenv status
+      - id: trivy_upload
+        name: Trivy (upload)
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-results.sarif"
+
+      - id: trivy_status
+        name: Trivy (status)
         if: always()
         shell: devenv shell --quiet bash -- -e {0}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [[ ${{ steps.devenv_test.outcome }} == 'success' ]];
+          if [[ ${{ steps.trivy_filesystem.outcome }} == 'success' ]];
           then
             RESULT="success"
-            DESCRIPTION="Devenv test passed!"
+            DESCRIPTION="Trivy security scan passed!"
           else
             RESULT="failure"
-            DESCRIPTION="Devenv test failed!"
+            DESCRIPTION="Trivy security scan failed!"
           fi
           gh api \
             repos/${{ github.repository }}/statuses/${{ github.sha }} \
@@ -122,6 +141,6 @@ jobs:
             -f context="${{ github.workflow }}" \
             -f description="${DESCRIPTION}" \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" || {
-              echo "Failed to report devenv status!"
+              echo "Failed to report trivy status!"
               exit 1
             }

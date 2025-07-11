@@ -1,0 +1,792 @@
+---
+##################################################
+# Name: semver.yaml
+# Description: Workflow for Semantic Versioning
+##################################################
+
+name: Semantic Versioning
+
+# prettier-ignore
+on:  # yamllint disable-line rule:truthy
+  # Dry Run (Pull Request)
+  pull_request:
+    branches:
+      - main
+      - master
+      - trunk
+      - candidate # Release Candidates
+    paths:
+      - "module/**" # Only run when the module is updated
+      - "scripts/**" # Only run when the scripts are updated
+  # Release (Push)
+  push:
+    branches:
+      - main
+      - master
+      - trunk
+      - candidate # Release Candidates
+    paths:
+      - "module/**" # Only run when the module is updated
+      - "scripts/**" # Only run when the scripts are updated
+  # Manual Trigger
+  workflow_dispatch:
+    inputs:
+      changelog_tool:
+        description: 'Choose changelog generation tool (convco uses conventional commits, github auto-generates from PRs)'
+        required: false
+        type: choice
+        default: 'github'
+        options:
+          - 'github'
+          - 'convco'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: read
+  statuses: write
+
+env:
+  # GitHub
+  PROJECT: ${{ github.repository }}
+  BRANCH_NAME_CURRENT: ${{ github.head_ref || github.ref_name }}
+  BRANCH_NAME_DEFAULT: ${{ github.event.repository.default_branch }}
+
+  # Nix
+  NIXPKGS_ALLOW_UNFREE: 1
+
+  # Semantic Versioning changelog tool (convco or github)
+  # - Use convco for conventional commits
+  # - Or use GitHub for auto-generated changelog from PRs
+  SEMVER_CHANGELOG_TOOL: ${{ vars.SEMVER_CHANGELOG_TOOL || 'github' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ##################################################
+  # Determine Semantic Version
+  ##################################################
+
+  semantic-version:
+    name: Semantic Version
+
+    # Runs on pull request and push events
+    if: |
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push'
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 15
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+      - id: checkout_repository
+        name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: recursive
+          fetch-depth: 0
+
+      # Obtain the PR and extract the semver labels.
+      - id: extract_labels
+        name: Extract labels
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Semantic version types to match for (case insensitive)
+            const coreVersionTypes = ['major', 'minor', 'patch', 'none'];
+
+            /**
+             * Extracts version type from a label, handling optional prefixes and suffixes
+             * @param {string} label - The label to parse
+             * @returns {string|null} - The core version type (major/minor/patch) or null if not found
+             */
+            function extractVersionType(label) {
+              const normalizedLabel = label.toLowerCase().trim();
+              
+              // Check if the label contains any of our core version types
+              for (const versionType of coreVersionTypes) {
+                // Create patterns to match the version type in various formats:
+                // 1. Exact match: "major", "MAJOR", "Minor"
+                // 2. With prefix: "semver major", "version-minor", "v_patch"
+                // 3. With suffix: "major-rc", "minor candidate", "patch_alpha"
+                // 4. Both: "semver major-rc", "version minor candidate"
+                
+                const patterns = [
+                  // Exact match (whole word)
+                  new RegExp(`^${versionType}$`, 'i'),
+                  // With separators (space, dash, underscore) before and/or after
+                  new RegExp(`(?:^|[\\s\\-_]+)${versionType}(?:[\\s\\-_]+|$)`, 'i'),
+                  // As part of compound words but still distinct
+                  new RegExp(`(?:^|[^a-z])${versionType}(?:[^a-z]|$)`, 'i')
+                ];
+                
+                if (patterns.some(pattern => pattern.test(normalizedLabel))) {
+                  return versionType;
+                }
+              }
+              
+              return null;
+            }
+
+            let pr = null;
+
+            // Get PR data based on event type
+            if (context.eventName === 'push') {
+
+              // For push events, get the merged PR from commit message
+              const { data: commits } = await github.rest.repos.listCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: context.sha,
+                per_page: 1
+              });
+              
+              const commit = commits[0];
+              const prNumber = commit.commit.message.match(/\(#(\d+)\)/);
+              
+              if (prNumber) {
+                const { data: prData } = await github.rest.pulls.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: parseInt(prNumber[1])
+                });
+                pr = prData;
+              }
+
+            } else {
+
+              // For pull request events, use the context payload
+              pr = context.payload.pull_request;
+
+            }
+
+            if (!pr) {
+              core.setFailed(`No pull request found. A pull request with a label containing ${coreVersionTypes.join(', ').toUpperCase()} is required for semantic versioning.`);
+              return;
+            }
+
+            // Extract and analyze labels
+            const allLabels = pr.labels ? pr.labels.map(label => label.name) : [];
+            const versionLabelsInfo = [];
+
+            // Find all labels that contain version types
+            for (const label of allLabels) {
+              const versionType = extractVersionType(label);
+              if (versionType) {
+                versionLabelsInfo.push({
+                  originalLabel: label,
+                  versionType: versionType
+                });
+              }
+            }
+
+            console.log('All labels:', allLabels);
+            console.log('Version labels found:', versionLabelsInfo);
+
+            if (versionLabelsInfo.length === 0) {
+
+              const exampleLabels = [
+                'major', 'minor', 'patch', 'none',
+                'semver major', 'semver minor', 'semver patch', 'semver none',
+                'major-rc', 'minor candidate', 'patch-alpha', 'none-docs',
+                'version-major', 'v_minor', 'PATCH', 'NONE'
+              ];
+              core.setFailed(`No version labels found! Please add a label containing one of: ${coreVersionTypes.join(', ').toUpperCase()}. Examples: ${exampleLabels.join(', ')}`);
+              return;
+
+            }
+
+            if (versionLabelsInfo.length > 1) {
+              const foundLabels = versionLabelsInfo.map(info => info.originalLabel);
+              const foundTypes = versionLabelsInfo.map(info => info.versionType.toUpperCase());
+              core.setFailed(`Multiple version labels found: ${foundLabels.join(', ')} (detected types: ${foundTypes.join(', ')}). Only one version label is allowed.`);
+              return;
+            }
+
+            // Extract the core version type
+            const versionType = versionLabelsInfo[0].versionType;
+            const originalLabel = versionLabelsInfo[0].originalLabel;
+
+            // Determine if this is a release candidate based on branch or label content
+            const isCandidate = context.ref.includes('candidate') || 
+                               originalLabel.toLowerCase().includes('rc') ||
+                               originalLabel.toLowerCase().includes('candidate') ||
+                               originalLabel.toLowerCase().includes('alpha') ||
+                               originalLabel.toLowerCase().includes('beta');
+
+            console.log(`Selected version type: ${versionType.toUpperCase()} (from label: "${originalLabel}")`);
+            console.log(`Is release candidate: ${isCandidate}`);
+
+            return {
+              versionType: versionType,
+              isCandidate: isCandidate
+            };
+
+      - id: get_latest_tag
+        name: Get latest tag
+        run: |
+          # Get the latest tag or default to v0.0.0
+          LATEST_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)"
+          echo "LATEST_TAG=${LATEST_TAG}" >> "$GITHUB_OUTPUT"
+          echo "✅ Latest tag: ${LATEST_TAG}"
+
+      - id: calculate_semver
+        name: Calculate semantic version
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const labelInfo = ${{ steps.extract_labels.outputs.result }};
+            const latestTag = '${{ steps.get_latest_tag.outputs.LATEST_TAG }}';
+
+            // Parse current version (remove 'v' prefix and any suffixes)
+            const currentVersion = latestTag.replace(/^v/, '').replace(/-.*$/, '');
+            const [major, minor, patch] = currentVersion.split('.').map(Number);
+
+            let newMajor = major;
+            let newMinor = minor;
+            let newPatch = patch;
+
+            // Increment based on version type
+            switch (labelInfo.versionType) {
+              case 'major':
+                newMajor += 1;
+                newMinor = 0;
+                newPatch = 0;
+                break;
+              case 'minor':
+                newMinor += 1;
+                newPatch = 0;
+                break;
+              case 'patch':
+                newPatch += 1;
+                break;
+              case 'none':
+                // No version increment for 'none' type
+                break;
+              default:
+                throw new Error(`Unknown version type: ${labelInfo.versionType}`);
+            }
+
+            // Construct new version
+            const newVersion = `${newMajor}.${newMinor}.${newPatch}`;
+            let newTag = `v${newVersion}`;
+
+            // Add release candidate suffix if on candidate branch
+            if (labelInfo.isCandidate) {
+              newTag += '-rc';
+            }
+
+            console.log(`Current version: ${currentVersion}`);
+            console.log(`New version: ${newVersion}`);
+            console.log(`New tag: ${newTag}`);
+            console.log(`Version bump required: ${labelInfo.versionType !== 'none'}`);
+
+            if (labelInfo.versionType === 'none') {
+              console.log('⚠️ No version bump will be performed (none label detected)');
+              console.log('   - No git tag will be created');
+              console.log('   - No GitHub release will be created');
+              console.log('   - This is typically used for documentation or non-code changes');
+            }
+
+            // Set outputs directly
+            core.setOutput('semver', newVersion);
+            core.setOutput('tag', newTag);
+            core.setOutput('version-bump', labelInfo.versionType !== 'none');
+            core.setOutput('version-type', labelInfo.versionType);
+            core.setOutput('is-candidate', labelInfo.isCandidate);
+
+            return {
+              semver: newVersion,
+              tag: newTag,
+              versionType: labelInfo.versionType,
+              isCandidate: labelInfo.isCandidate
+            };
+
+    outputs:
+      semver: ${{ steps.calculate_semver.outputs.semver }}
+      tag: ${{ steps.calculate_semver.outputs.tag }}
+      version-bump: ${{ steps.calculate_semver.outputs.version-bump }}
+      version-type: ${{ steps.calculate_semver.outputs.version-type }}
+      is-candidate: ${{ steps.calculate_semver.outputs.is-candidate }}
+
+  ##################################################
+  # Create Git Tag
+  ##################################################
+
+  tag:
+    name: Create Tag
+
+    # Only run on push events
+    if: github.event_name == 'push' &&
+      needs.semantic-version.outputs.version-bump == 'true'
+
+    runs-on: ${{ matrix.os }}
+
+    needs:
+      - semantic-version
+
+    timeout-minutes: 15
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+      - id: checkout_repository
+        name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: recursive
+          fetch-depth: 0
+
+      - id: check_existing_tag
+        name: Check if tag already exists
+        env:
+          TAG_NAME: ${{ needs.semantic-version.outputs.tag }}
+        run: |
+          echo "Checking if tag ${TAG_NAME} already exists..."
+
+          if git rev-parse "refs/tags/${TAG_NAME}" >/dev/null 2>&1;
+          then
+            echo "❌ Tag ${TAG_NAME} already exists!"
+            echo "This should not happen, review the workflow configuration and check for duplicate processing."
+            exit 1
+          else
+            echo "✅ Tag ${TAG_NAME} does not exist, proceeding with tag creation."
+          fi
+
+      - id: create_tag
+        name: Create and push tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.semantic-version.outputs.tag }}
+          SEMVER: ${{ needs.semantic-version.outputs.semver }}
+          VERSION_TYPE: ${{ needs.semantic-version.outputs.version-type }}
+        run: |
+          echo "Creating tag: ${TAG_NAME}"
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create annotated tag
+          git tag -a "${TAG_NAME}" -m "Release ${SEMVER} (${VERSION_TYPE} bump)"
+
+          # Push tag
+          git push origin "${TAG_NAME}"
+
+          echo "✅ Successfully created and pushed tag: ${TAG_NAME}"
+
+    outputs:
+      tag-created: "true"
+
+  ##################################################
+  # Create GitHub Release
+  ##################################################
+
+  release:
+    name: Create Release
+
+    # Only run on push events, if version bump is needed, and if the tag was created
+    if: |
+      github.event_name == 'push' &&
+      needs.semantic-version.outputs.version-bump == 'true' &&
+      needs.tag.outputs.tag-created == 'true'
+
+    runs-on: ${{ matrix.os }}
+
+    needs:
+      - semantic-version
+      - tag
+
+    timeout-minutes: 15
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+      - id: checkout_repository
+        name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: recursive
+          fetch-depth: 0 # Need full history for convco
+
+      - id: install_nix
+        name: "Install Nix ❄️"
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          enable_kvm: true
+
+      - id: cachix
+        name: "Enable Cachix ❄️"
+        uses: cachix/cachix-action@v16
+        if: vars.CACHIX_CACHE_NAME != ''
+        with:
+          name: ${{ vars.CACHIX_CACHE_NAME }}
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          useDaemon: true
+          skipPush: false
+
+      - id: devenv_install
+        name: Devenv install
+        run: |
+          nix profile install --accept-flake-config nixpkgs#devenv
+
+      - id: generate_changelog
+        name: Generate changelog with convco
+        if: |
+          (github.event.inputs.changelog_tool == 'convco') ||
+          (github.event.inputs.changelog_tool == null && vars.SEMVER_CHANGELOG_TOOL == 'convco') ||
+          (github.event.inputs.changelog_tool == null && vars.SEMVER_CHANGELOG_TOOL == null && env.SEMVER_CHANGELOG_TOOL == 'convco')
+        shell: devenv shell --quiet bash -- -e {0}
+        run: |
+          echo "📝 Generating changelog..."
+
+          CHANGELOG_FILE="/tmp/changelog.md"
+          echo "CHANGELOG_FILE=${CHANGELOG_FILE}" >> $GITHUB_OUTPUT
+
+          # Get the current tag that was just created and strip the 'v' prefix
+          CURRENT_TAG="${{ needs.semantic-version.outputs.tag }}"
+          CURRENT_TAG_STRIPPED="$(echo ${CURRENT_TAG} | sed 's/^v//')"
+          echo "Current tag: ${CURRENT_TAG}"
+          echo "Version (stripped): ${CURRENT_TAG_STRIPPED}"
+
+          # Find the previous tag (excluding the current one that was just created)
+          PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "^${CURRENT_TAG}$" | head -n 1)
+          PREVIOUS_TAG_STRIPPED="$(echo ${PREVIOUS_TAG} | sed 's/^v//')"
+
+          # Initialize changelog file (overwrite any existing content)
+          echo "" > "${CHANGELOG_FILE}"
+
+          if [[ "${PREVIOUS_TAG:-EMPTY}" == "EMPTY" ]];
+          then
+            echo "📋 No previous tag found, generating changelog from beginning"
+            
+            # For first release, generate changelog for all commits
+            if convco changelog --unreleased "${CURRENT_TAG_STRIPPED}" > "${CHANGELOG_FILE}" 2>/dev/null;
+            then
+              echo "✅ Generated full changelog with convco"
+            else
+              echo "⚠️  convco failed, will use GitHub's built-in release notes instead"
+              echo "" > "${CHANGELOG_FILE}"
+            fi
+
+          else
+            echo "📋 Generating changelog from ${PREVIOUS_TAG} to HEAD"
+            
+            # Generate changelog for the range between tags
+            if convco changelog "${PREVIOUS_TAG}..HEAD" --unreleased "${CURRENT_TAG_STRIPPED}" > "${CHANGELOG_FILE}" 2>/dev/null;
+            then
+              echo "✅ Generated diff changelog with convco"
+            else
+              echo "⚠️  convco failed, will use GitHub's built-in release notes instead"
+              echo "" > "${CHANGELOG_FILE}"
+            fi
+          fi
+
+          # Check if changelog was generated successfully
+          CHANGELOG_LINES=$(wc -l < "${CHANGELOG_FILE}" | tr -d ' ')
+
+          if [[ "${CHANGELOG_LINES}" -gt 1 ]];
+          then
+            echo "✅ Changelog generated successfully"
+            echo "📊 Total lines: ${CHANGELOG_LINES}"
+            echo "📄 Complete changelog content:"
+            echo "===================="
+            cat "${CHANGELOG_FILE}"
+            echo "===================="
+          else
+            echo "⚠️  No meaningful changelog generated (${CHANGELOG_LINES} lines), will use GitHub's built-in release notes instead"
+          fi
+
+      - id: create_release
+        name: Create GitHub release
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const tagName = '${{ needs.semantic-version.outputs.tag }}';
+            const semver = '${{ needs.semantic-version.outputs.semver }}';
+            const versionType = '${{ needs.semantic-version.outputs.version-type }}';
+            const isCandidate = '${{ needs.semantic-version.outputs.is-candidate }}' === 'true';
+
+            // Determine release type
+            const isDraft = isCandidate;
+            const isPrerelease = isCandidate;
+
+            // Changelog file location (may be empty if convco step was skipped)
+            const changelogFile = '${{ steps.generate_changelog.outputs.CHANGELOG_FILE }}' || '/tmp/changelog.md';
+
+            // Determine changelog tool priority:
+            // 1. Workflow input (manual trigger)
+            // 2. Repository variable 
+            // 3. Environment variable
+            // 4. Default to 'github'
+            const workflowInput = '${{ github.event.inputs.changelog_tool }}';
+            const repoVariable = '${{ vars.SEMVER_CHANGELOG_TOOL }}';
+            const envVariable = '${{ env.SEMVER_CHANGELOG_TOOL }}';
+
+            const semverChangelogTool = workflowInput || repoVariable || envVariable || 'github';
+
+            console.log(`📋 Changelog tool selection:`);
+            console.log(`   - Workflow input: ${workflowInput || 'not set'}`);
+            console.log(`   - Repository variable: ${repoVariable || 'not set'}`);
+            console.log(`   - Environment variable: ${envVariable || 'not set'}`);
+            console.log(`   - Selected tool: ${semverChangelogTool}`);
+
+            // Only try to use convco changelog if convco tool was selected
+            let useConvcoChangelog = false;
+            let convcoChangelog = '';
+
+            if (semverChangelogTool === 'convco') {
+              try {
+                convcoChangelog = fs.readFileSync(changelogFile, 'utf8').trim();
+                
+                // Check if changelog has meaningful content (more than just empty lines)
+                const meaningfulLines = convcoChangelog.split('\n').filter(line => line.trim().length > 0);
+                
+                if (meaningfulLines.length > 1) {
+                  useConvcoChangelog = true;
+                  console.log('✅ Using convco-generated changelog');
+                } else {
+                  console.log('⚠️ Changelog file exists but contains no meaningful content, falling back to GitHub auto-generation');
+                }
+              } catch (error) {
+                console.log('⚠️ Could not read convco changelog, falling back to GitHub auto-generation');
+                console.log(`   Error: ${error.message}`);
+              }
+            } else {
+              console.log('📝 Convco not selected, using GitHub auto-generated release notes');
+            }
+
+            let releaseBody = '';
+            let generateReleaseNotes = false;
+
+            // Build release body components
+            const versionBadge = isCandidate ? '🚧 **Release Candidate**' : '🚀 **Release**';
+            const warningSection = isCandidate ? 
+              '\n\n> ⚠️ **Warning**: This is a release candidate and is not recommended for production use.\n' : '';
+
+            const releaseDetails = [
+              '---',
+              '',
+              '### 📋 Release Details',
+              '',
+              `- **Version**: \`${semver}\``,
+              `- **Type**: ${versionType.toUpperCase()} bump`,
+              `- **Branch**: \`${{ github.ref_name }}\``,
+              `- **Changelog**: ${useConvcoChangelog ? 'Generated by [convco](https://convco.github.io/changelog/) using conventional commits' : 'Auto-generated by GitHub'}`,
+              `- **Tool Selected**: \`${semverChangelogTool}\``,
+              '',
+              '<sub>*This release was automatically created by the semantic versioning workflow.*</sub>'
+            ].join('\n');
+
+            if (useConvcoChangelog) {
+              
+              console.log('📝 Using convco-generated release notes');
+              
+              releaseBody = [
+                versionBadge,
+                '',
+                `This is a **${versionType.toUpperCase()}** version bump from the previous release.`,
+                warningSection,
+                '',
+                releaseDetails,
+                '',
+                convcoChangelog
+              ].join('\n').replace(/\n{3,}/g, '\n\n'); // Remove excessive line breaks
+
+              generateReleaseNotes = false;
+
+            } else {
+              
+              console.log('📝 Using GitHub auto-generated release notes');
+              
+              releaseBody = [
+                versionBadge,
+                '',
+                `This is a **${versionType.toUpperCase()}** version bump from the previous release.`,
+                warningSection,
+                '',
+                releaseDetails,
+                ''
+              ].join('\n').replace(/\n{3,}/g, '\n\n');
+
+              generateReleaseNotes = true;
+
+            }
+
+            // Create the release
+            const { data: release } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tagName,
+              name: `${semver}${isCandidate ? '-rc' : ''}`,
+              body: releaseBody,
+              draft: isDraft,
+              prerelease: isPrerelease,
+              generate_release_notes: generateReleaseNotes
+            });
+
+            console.log(`✅ Created release: ${release.html_url}`);
+            console.log(`   - Version: ${semver}`);
+            console.log(`   - Type: ${versionType.toUpperCase()} bump`);
+            console.log(`   - Draft: ${isDraft}`);
+            console.log(`   - Prerelease: ${isPrerelease}`);
+            console.log(`   - Changelog source: ${useConvcoChangelog ? 'convco' : 'GitHub auto-generated'}`);
+
+            // Set outputs for downstream workflows
+            core.setOutput('release-id', release.id);
+            core.setOutput('release-url', release.html_url);
+            core.setOutput('release-tag', release.tag_name);
+            core.setOutput('release-name', release.name);
+
+            return {
+              id: release.id,
+              url: release.html_url,
+              tag: release.tag_name,
+              name: release.name
+            };
+
+    outputs:
+      release-url: ${{ steps.create_release.outputs.release-url }}
+      release-id: ${{ steps.create_release.outputs.release-id }}
+      release-tag: ${{ steps.create_release.outputs.release-tag }}
+      release-name: ${{ steps.create_release.outputs.release-name }}
+
+  ##################################################
+  # Report Status
+  ##################################################
+
+  status:
+    name: Report Status
+
+    runs-on: ${{ matrix.os }}
+
+    needs:
+      - semantic-version
+      - tag
+      - release
+
+    if: always()
+
+    timeout-minutes: 10
+    continue-on-error: true
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+      - id: determine_status
+        name: Determine overall status
+        run: |
+          echo "=== Workflow Status Summary ==="
+          echo "Semantic Version Job: ${{ needs.semantic-version.result }}"
+          echo "Tag Job: ${{ needs.tag.result }}"
+          echo "Release Job: ${{ needs.release.result }}"
+
+          # Determine overall result
+          if [[ "${{ needs.semantic-version.result }}" == "success" ]];
+          then
+            
+            if [[ "${{ github.event_name }}" == "pull_request" ]];
+            then
+              RESULT="success"
+              DESCRIPTION="Semantic version calculated: ${{ needs.semantic-version.outputs.semver || 'N/A' }}"
+            elif [[ "${{ needs.semantic-version.outputs.version-bump }}" == "false" ]];
+            then
+              RESULT="success"
+              VERSION_TYPE="${{ needs.semantic-version.outputs.version-type || 'N/A' }}"
+              DESCRIPTION="No version bump required (${VERSION_TYPE} change)"
+            elif [[ "${{ needs.tag.result }}" == "success" && "${{ needs.release.result }}" == "success" ]];
+            then
+              RESULT="success"
+              TAG="${{ needs.semantic-version.outputs.tag || 'N/A' }}"
+              VERSION_TYPE="${{ needs.semantic-version.outputs.version-type || 'N/A' }}"
+              DESCRIPTION="Successfully created ${VERSION_TYPE} release: ${TAG}"
+            elif [[ "${{ needs.tag.result }}" == "failure" ]];
+            then
+              RESULT="failure"
+              DESCRIPTION="Failed to create git tag"
+            elif [[ "${{ needs.release.result }}" == "failure" ]];
+            then
+              RESULT="failure"
+              DESCRIPTION="Failed to create GitHub release"
+            else
+              RESULT="failure"
+              DESCRIPTION="Unknown failure in tag or release creation"
+            fi
+          else
+            RESULT="failure"
+            DESCRIPTION="Failed to determine semantic version"
+          fi
+
+          echo "RESULT=${RESULT}" >> "$GITHUB_OUTPUT"
+          echo "DESCRIPTION=${DESCRIPTION}" >> "$GITHUB_OUTPUT"
+
+          echo "=== Final Status ==="
+          echo "Result: ${RESULT}"
+          echo "Description: ${DESCRIPTION}"
+
+      - id: report_status
+        name: Report status to GitHub
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RESULT="${{ steps.determine_status.outputs.RESULT }}"
+          DESCRIPTION="${{ steps.determine_status.outputs.DESCRIPTION }}"
+
+          # Install gh CLI if not available
+          if ! command -v gh &> /dev/null;
+          then
+            echo "Installing GitHub CLI..."
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt update
+            sudo apt install gh -y
+          fi
+
+          gh api \
+            repos/${{ github.repository }}/statuses/${{ github.sha }} \
+            -f state="${RESULT}" \
+            -f context="${{ github.workflow }}" \
+            -f description="${DESCRIPTION}" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" || {
+              echo "❌ Failed to report semantic versioning status!"
+              exit 1
+            }
+
+          echo "✅ Successfully reported status: ${RESULT}"

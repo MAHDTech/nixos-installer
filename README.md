@@ -17,64 +17,17 @@ This installs NixOS from a configuration file;
 
 2. Setup Networking
 
-3. Define your configuration file.
+3. Either download a release binary or run the installer using the one-shot script:
 
 ```bash
-# Option 1: Use a predefined config file direct from GitHub (example configs/HYPERVISOR-1.yaml)
-export CONFIG_FILE="HYPERVISOR-1"
+# Dry run example using a remote config
+curl -fsSL https://raw.githubusercontent.com/MAHDTech/nixos-installer/trunk/scripts/yolo.sh | sudo bash -s -- -config HYPERVISOR-1
 
-# Option 2: Use a local config file (e.g. /tmp/config.yaml)
-export CONFIG_FILE="/tmp/config.yaml"
+# Execute mode example using a local config
+curl -fsSL https://raw.githubusercontent.com/MAHDTech/nixos-installer/trunk/scripts/yolo.sh | sudo bash -s -- -config /tmp/config.yaml -run
 
-# If you need a starter example..
-cp configs/example.yaml "${CONFIG_FILE}"
-vim "${CONFIG_FILE}"
-```
-
-4. Run the installer (nix version)
-
-```bash
-# Dry run
-sudo nix \
-    --extra-experimental-features nix-command \
-    --extra-experimental-features flakes \
-    run github:MAHDTech/nixos-installer \
-    -- \
-        -config "${CONFIG_FILE}"
-
-# Nuke all the things.
-sudo nix \
-    --extra-experimental-features nix-command \
-    --extra-experimental-features flakes \
-    run github:MAHDTech/nixos-installer \
-    -- \
-        -config "${CONFIG_FILE}" \
-        -run
-```
-
-5. Or, run the installer (go version)
-
-```bash
-nix-shell -p git go
-
-git clone git@github.com:MAHDTech/nixos-installer.git
-
-cd nixos-installer
-
-# Dry run
-sudo -E go run main.go \
-  -config "${CONFIG_FILE}"
-
-# Nuke all the things but don't auto-install
-sudo -E go run main.go \
-  -config "${CONFIG_FILE}" \
-  -run
-
-# Nuke all the things and auto-install configured flake.
-sudo -E go run main.go \
-  -config "${CONFIG_FILE}" \
-  -run \
-  -install
+# Execute mode example that also installs the defined Nix flake.
+curl -fsSL https://raw.githubusercontent.com/MAHDTech/nixos-installer/trunk/scripts/yolo.sh | sudo bash -s -- -config HYPERVISOR-1 -run -install
 ```
 
 ## Configuration Options
@@ -87,36 +40,6 @@ When you pass a simple name without path separators or file extensions:
 
 - `HYPERVISOR-1` → fetches `configs/HYPERVISOR-1.yaml` from GitHub
 - `example` → fetches `configs/example.yaml` from GitHub
-
-**Important**: The config is automatically fetched from the **same branch/ref** that you're running the installer from:
-
-```bash
-# Fetches config from main branch
-sudo nix \
-    --extra-experimental-features nix-command \
-    --extra-experimental-features flakes \
-    run github:MAHDTech/nixos-installer \
-    -- \
-        -config HYPERVISOR-1
-
-# Fetches config from my-feature-branch
-sudo nix \
-    --extra-experimental-features nix-command \
-    --extra-experimental-features flakes \
-    run github:MAHDTech/nixos-installer/my-feature-branch \
-    -- \
-        -config HYPERVISOR-1
-
-# Fetches config from specific commit
-sudo nix \
-    --extra-experimental-features nix-command \
-    --extra-experimental-features flakes \
-    run github:MAHDTech/nixos-installer/abc123def \
-    -- \
-        -config HYPERVISOR-1
-```
-
-This ensures that the configuration always matches the version of the installer you're running.
 
 ### File Paths (Local Files)
 

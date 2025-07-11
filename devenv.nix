@@ -7,6 +7,19 @@
 }:
 let
 
+  # Variables
+  name = "nixos-installer";
+  version = "1.0.0";
+
+  # Custom packages.
+  nixos-installer = import ./devenv/nixos-installer.nix {
+    inherit name;
+    inherit version;
+
+    inherit lib;
+    inherit pkgs;
+  };
+
   # All available unstable packages.
   pkgsUnstable = import inputs.nixpkgs-unstable {
     config.allowUnfree = true;
@@ -21,6 +34,9 @@ let
   commonPackages = with pkgs; [
     figlet
     hello
+
+    # Custom packages.
+    nixos-installer.default.normal
   ];
 
   # Development packages.
@@ -34,7 +50,7 @@ let
 in
 {
 
-  name = "nixos installer";
+  inherit name;
 
   env = {
     PROJECT = config.name;
@@ -92,8 +108,8 @@ in
       "src/vendor"
     ];
     hooks = {
+      beautysh.enable = false;
       actionlint.enable = true;
-      beautysh.enable = true;
       check-merge-conflicts.enable = true;
       check-shebang-scripts-are-executable.enable = true;
       check-symlinks.enable = true;
@@ -124,7 +140,20 @@ in
       statix.enable = true;
       trufflehog.enable = true;
       typos.enable = true;
-      yamllint.enable = true;
+      yamllint = {
+        enable = true;
+        settings = {
+          configPath = ".linters/config/.yamllint.yml";
+        };
+      };
+      # Custom hook to generate the gomod2nix.toml file.
+      gomod2nix-generate = {
+        enable = true;
+        name = "gomod2nix-generate";
+        entry = "gomod2nix-generate";
+        files = "^src/vendor/.*\\.*$";
+        pass_filenames = false;
+      };
     };
   };
 
@@ -135,14 +164,27 @@ in
     git --version | grep --color=auto "${pkgs.git.version}"
   '';
 
-  outputs =
-    let
-      name = "nixos-installer";
-      version = "1.0.0";
-    in
-    {
-      app = import ./devenv/nixos-installer.nix {
-        inherit pkgs name version;
-      };
+  scripts = {
+    gomod2nix-generate = {
+      package = pkgs.bash;
+      description = "Generate the gomod2nix.toml file";
+      exec = ''
+        pushd src > /dev/null
+        gomod2nix generate
+        popd > /dev/null
+      '';
     };
+
+  };
+
+  outputs = {
+    # Default builds
+    nixos-installer = nixos-installer.default.normal;
+
+    # Platform specific builds
+    nixos-installer-darwin-amd64 = nixos-installer."x86_64-darwin".normal;
+    nixos-installer-darwin-arm64 = nixos-installer."aarch64-darwin".normal;
+    nixos-installer-linux-amd64 = nixos-installer."x86_64-linux".normal;
+    nixos-installer-linux-arm64 = nixos-installer."aarch64-linux".normal;
+  };
 }

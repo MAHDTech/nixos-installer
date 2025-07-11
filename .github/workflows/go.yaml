@@ -6,13 +6,16 @@ on:  # yamllint disable-line rule:truthy
   push:
     branches:
       - trunk
-
   pull_request:
     branches:
       - "trunk"
     paths:
       - .github/workflows/go.yaml
       - src/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -21,6 +24,8 @@ permissions:
   statuses: read
 
 env:
+  NIXPKGS_ALLOW_UNFREE: 1
+
   PROJECT: ${{ github.repository }}
 
   BRANCH_NAME_CURRENT: ${{ github.head_ref || github.ref_name }}
@@ -36,12 +41,13 @@ defaults:
     shell: bash
 
 jobs:
-  ##################################################
-  # Test the Go code
-  ##################################################
+  #########################################################
+  # Test
+  #########################################################
 
   test:
-    name: Go Test
+    # yamllint disable-line rule:line-length
+    name: Go Test (${{ matrix.go-version }}, ${{ matrix.go-os }}, ${{ matrix.go-arch }})
     runs-on: ${{ matrix.os }}
 
     timeout-minutes: 30
@@ -50,26 +56,35 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
+        go-version:
+          - "1.23.4"
+        go-os:
+          - "linux"
+        go-arch:
+          - "amd64"
+          - "arm64"
         os:
           - ubuntu-latest
 
     steps:
-      - id: go_setup
-        name: Set up Go
-        uses: actions/setup-go@v5
-
-      - id: go_check
-        name: Go Check
-        run: |
-          go version
-          go env
-
       - id: checkout_repository
         name: Checkout repository
         uses: actions/checkout@v4
         with:
           lfs: false
           submodules: recursive
+
+      - id: go_setup
+        name: Set up Go (${{ matrix.go-version }})
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - id: go_check
+        name: Go Check (${{ matrix.go-version }})
+        run: |
+          go version
+          go env
 
       - id: go_mod_download
         name: Get dependencies
@@ -78,7 +93,7 @@ jobs:
           go mod download
 
       - id: go_test
-        name: Go Test
+        name: Go Test (${{ matrix.go-version }})
         run: |
           cd ${{ env.GOHOME }}
           go test -v ./...
@@ -108,7 +123,132 @@ jobs:
             --issues-exit-code=1
 
       - id: go_build
-        name: Go Build
+        name: Go Build (${{ matrix.go-version }}, ${{ matrix.go-os }}, ${{ matrix.go-arch }})
+        env:
+          GOOS: ${{ matrix.go-os }}
+          GOARCH: ${{ matrix.go-arch }}
         run: |
           cd ${{ env.GOHOME }}
-          go build -v ./...
+          go build -v -o nixos-installer-${{ matrix.go-os }}-${{ matrix.go-arch }} ./cmd/nixos-installer
+
+      - id: go_upload_artifacts
+        name: Go Upload Artifacts (${{ matrix.go-version }}, ${{ matrix.go-os }}, ${{ matrix.go-arch }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.go-os }}-${{ matrix.go-arch }}
+          path: ${{ env.GOHOME }}/nixos-installer-${{ matrix.go-os }}-${{ matrix.go-arch }}
+
+  #########################################################
+  # Release
+  #########################################################
+
+  release:
+    name: Go Release
+    runs-on: ${{ matrix.os }}
+    needs: test
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/trunk'
+
+    timeout-minutes: 30
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+      - id: checkout_repository
+        name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: none
+          fetch-depth: 0 # Fetch all history for tags
+
+      - id: install_nix
+        name: "Install Nix ❄️"
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          enable_kvm: true
+
+      - id: cachix
+        name: "Enable Cachix ❄️"
+        uses: cachix/cachix-action@v16
+        with:
+          name: ${{ vars.CACHIX_CACHE_NAME }}
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          useDaemon: true
+          skipPush: false
+
+      - id: devenv_install
+        name: Devenv install
+        run: |
+          nix profile install nixpkgs#devenv
+
+      - id: version
+        name: Extract Project Version
+        shell: devenv shell --quiet bash -- -e {0}
+        run: |
+          APP_PATH=$(devenv build outputs.nixos-installer)
+          APP_VER=$(echo $APP_PATH | cut -d "-" -f 4)
+          echo "VERSION=$APP_VER" >> "$GITHUB_OUTPUT"
+
+      - id: latest_tag
+        name: Get Latest Tag
+        run: |
+          LATEST_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)"
+          echo "GIT_TAG=$LATEST_TAG" >> "$GITHUB_OUTPUT"
+
+      - id: check_version_bump
+        name: Check Version Bump
+        if: steps.version.outputs.VERSION != steps.latest_tag.outputs.GIT_TAG
+        run: echo "Version bumped from ${{ steps.latest_tag.outputs.GIT_TAG }} to v${{ steps.version.outputs.VERSION }}"
+
+      - id: create_tag
+        name: Create Git Tag
+        if: steps.version.outputs.VERSION != steps.latest_tag.outputs.GIT_TAG
+        run: |
+          git tag v${{ steps.version.outputs.VERSION }}
+          git push origin v${{ steps.version.outputs.VERSION }}
+
+      - id: go_download_artifacts
+        name: Go Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+          pattern: binary-*
+
+      - id: generate_checksums
+        name: Generate Checksums
+        run: |
+          cd binaries
+          sha256sum binary-* > checksums.txt
+
+      - id: create_release
+        name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.version.outputs.VERSION }}
+          release_name: Release v${{ steps.version.outputs.VERSION }}
+          body: Automated release for version v${{ steps.version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+
+      - id: upload_assets
+        name: Upload Release Assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for FILE in binaries/*/* binaries/checksums.txt;
+          do
+            gh release upload \
+              "v${{ steps.version.outputs.VERSION }}" \
+              "$FILE" \
+              --clobber \
+              --repo "${{ github.repository }}"
+          done
