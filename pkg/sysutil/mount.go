@@ -75,6 +75,13 @@ func GetMountpoints(deviceID string, data []byte) ([]string, error) {
 	}
 
 	if deviceIDFromJSON == "" {
+		// Log all available device IDs for debugging
+		Debug("Available device IDs in lsblk output:")
+		for _, device := range blockDevices.Blockdevices {
+			if device.ID != "" {
+				Debug("  - %s", device.ID)
+			}
+		}
 		return nil, fmt.Errorf("device ID %s not found in block device list", deviceID)
 	}
 
