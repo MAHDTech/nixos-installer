@@ -4,7 +4,6 @@ package sysutil
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 )
@@ -48,7 +47,7 @@ func Execute(
 		cmd.Stdin = os.Stdin
 	}
 
-	log.Printf("%s: %s\n",
+	Debug("%s: %s",
 		map[bool]string{true: "EXECUTING", false: "DRY RUN"}[execute],
 		cmd.String(),
 	)
@@ -69,7 +68,7 @@ func Execute(
 
 	case ModeSilent:
 		if err := cmd.Run(); err != nil {
-			log.Printf("Command failed (but ignored): %s, Error: %s", cmd.String(), err)
+			Warn("Command failed (but ignored): %s, Error: %s", cmd.String(), err)
 		}
 		return "", nil
 
