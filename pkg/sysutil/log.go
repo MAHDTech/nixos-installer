@@ -43,11 +43,11 @@ func (l LogLevel) String() string {
 func (l LogLevel) Color() string {
 	switch l {
 	case DEBUG:
-		return "\033[36m" // Cyan
-	case INFO:
-		return "\033[32m" // Green
-	case WARN:
 		return "\033[33m" // Yellow
+	case INFO:
+		return "\033[34m" // Blue
+	case WARN:
+		return "\033[38;5;208m" // Orange
 	case ERROR:
 		return "\033[31m" // Red
 	default:
