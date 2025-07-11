@@ -13,7 +13,7 @@ This installs NixOS;
 
 ## Usage
 
-1. Boot the NixOS Live **minimal** ISO. (The graphical installer no longer includes ZFS support.)
+1. Boot the NixOS Live ISO (be sure to boot an LTS kernel for ZFS support).
 
 2. Setup Networking
 

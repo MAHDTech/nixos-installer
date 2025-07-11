@@ -18,3 +18,11 @@ const (
 	zfsDatasetContainers = "var/lib/containers"
 	zfsDatasetIncus      = "var/lib/incus"
 )
+
+// The names of the tools that are required.
+const requiredTools = []string{
+	"zfs",
+	"zpool",
+	"sgdisk",
+	"chicken-foot",
+}

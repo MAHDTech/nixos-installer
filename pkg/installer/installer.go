@@ -24,6 +24,12 @@ func Run() error {
 		return fmt.Errorf("failed to read or validate configuration: %w", err)
 	}
 
+	// Ensure the required tools are installed.
+	err = checkToolsInstalled()
+	if err != nil {
+		return fmt.Errorf("required tool is missing: %w", err)
+	}
+
 	// Execute installation phases
 	if err := runPreparationPhase(*execute, configData); err != nil {
 		return err
@@ -80,6 +86,19 @@ func parseFlags() (*string, *bool, *bool, error) {
 	}
 
 	return configFile, execute, executeInstall, nil
+}
+
+// checkToolsInstalled checks if the required tools are installed
+func checkToolsInstalled() error {
+
+	for _, tool := range requiredTools {
+		if _, err := exec.LookPath(tool); err != nil {
+			return fmt.Errorf("%s", tool)
+		}
+	}
+
+	return nil
+
 }
 
 // runPreparationPhase handles the preparation phase of installation
