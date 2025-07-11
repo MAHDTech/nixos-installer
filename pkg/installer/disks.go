@@ -2,7 +2,6 @@ package installer
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"sort"
@@ -32,17 +31,17 @@ type PartitionInfo struct {
 func unmountDisks(execute bool, configData *config.Config) error {
 	var err error
 
-	log.Println("--- Unmounting Disks ---")
+	sysutil.Info("--- Unmounting Disks ---")
 
 	// First try to unmount everything using Linux kernel's force unmount
 	// This is more reliable than ZFS's unmount for busy filesystems
 	err = forceUnmountMountpoints(execute)
 	if err != nil {
 		// Non-fatal error, just log it
-		log.Printf("Warning: Failed to force unmount mountpoints: %v", err)
+		sysutil.Warn("Failed to force unmount mountpoints: %v", err)
 	}
 
-	log.Println("Processing ZFS Pools")
+	sysutil.Info("Processing ZFS Pools")
 
 	// First get a list of all pools
 	poolsOutput, err := sysutil.Execute(
@@ -63,7 +62,7 @@ func unmountDisks(execute bool, configData *config.Config) error {
 				continue
 			}
 
-			log.Printf("Unmounting all datasets in pool: %s", pool)
+			sysutil.Info("Unmounting all datasets in pool: %s", pool)
 
 			// First list all datasets in reverse order (children first)
 			datasetsOutput, listErr := sysutil.Execute(
@@ -92,7 +91,7 @@ func unmountDisks(execute bool, configData *config.Config) error {
 					if dataset == "" {
 						continue
 					}
-					log.Printf("Unmounting dataset: %s", dataset)
+					sysutil.Info("Unmounting dataset: %s", dataset)
 					_, unmountErr := sysutil.Execute(
 						execute,
 						sysutil.ModeNormal,
@@ -101,7 +100,7 @@ func unmountDisks(execute bool, configData *config.Config) error {
 						dataset,
 					)
 					if unmountErr != nil {
-						log.Printf("Warning: Failed to unmount dataset %s: %v", dataset, unmountErr)
+						sysutil.Warn("Failed to unmount dataset %s: %v", dataset, unmountErr)
 						// Try force unmount if regular unmount fails
 						_, forceErr := sysutil.Execute(
 							execute,
@@ -112,8 +111,8 @@ func unmountDisks(execute bool, configData *config.Config) error {
 							dataset,
 						)
 						if forceErr != nil {
-							log.Printf(
-								"Warning: Force unmount also failed for %s: %v",
+							sysutil.Warn(
+								"Force unmount also failed for %s: %v",
 								dataset,
 								forceErr,
 							)
@@ -123,7 +122,7 @@ func unmountDisks(execute bool, configData *config.Config) error {
 			}
 
 			// Now export the pool
-			log.Printf("Exporting pool: %s", pool)
+			sysutil.Info("Exporting pool: %s", pool)
 			_, exportErr := sysutil.Execute(
 				execute,
 				sysutil.ModeNormal,
@@ -133,26 +132,26 @@ func unmountDisks(execute bool, configData *config.Config) error {
 				pool,
 			)
 			if exportErr != nil {
-				log.Printf("Warning: Failed to export pool %s: %v", pool, exportErr)
+				sysutil.Warn("Failed to export pool %s: %v", pool, exportErr)
 			}
 		}
 	} else {
 		// Fallback to the original approach
 		_, err = sysutil.Execute(execute, sysutil.ModeNormal, "zfs", "unmount", "-a", "-f")
 		if err != nil {
-			log.Printf("Warning: Failed to unmount ZFS pools: %v", err)
+			sysutil.Warn("Failed to unmount ZFS pools: %v", err)
 		}
 		time.Sleep(3 * time.Second) // Give time for unmounts to finish
 
 		// Process ZFS export
 		_, err = sysutil.Execute(execute, sysutil.ModeNormal, "zpool", "export", "-a", "-f")
 		if err != nil {
-			log.Printf("Warning: Failed to export ZFS pools: %v", err)
+			sysutil.Warn("Failed to export ZFS pools: %v", err)
 		}
 		time.Sleep(3 * time.Second) // Give time for exports to finish
 	}
 
-	log.Println("Processing other mounts")
+	sysutil.Info("Processing other mounts")
 
 	// Create a slice to store all mountpoints
 	var allMountPoints []string
@@ -175,7 +174,7 @@ func unmountDisks(execute bool, configData *config.Config) error {
 	// Check if the UEFI disk is in the config
 	if configData.UEFI.Disk != "" {
 
-		log.Printf("Checking for mountpoints on UEFI disk: %s", configData.UEFI.Disk)
+		sysutil.Info("Checking for mountpoints on UEFI disk: %s", configData.UEFI.Disk)
 
 		uefiMountPoints, err := sysutil.GetMountpoints(
 			configData.UEFI.Disk,
@@ -191,7 +190,7 @@ func unmountDisks(execute bool, configData *config.Config) error {
 
 		// Add UEFI mountpoints to our list
 		for _, mp := range uefiMountPoints {
-			log.Printf("Found mountpoint on UEFI disk: %s", mp)
+			sysutil.Info("Found mountpoint on UEFI disk: %s", mp)
 			allMountPoints = append(allMountPoints, mp)
 		}
 	}
@@ -205,7 +204,7 @@ func unmountDisks(execute bool, configData *config.Config) error {
 
 	for _, zfsDisk := range allZFSDisks {
 
-		log.Printf("Checking for mountpoints on ZFS disk: %s", zfsDisk)
+		sysutil.Info("Checking for mountpoints on ZFS disk: %s", zfsDisk)
 
 		zfsMountPoints, err := sysutil.GetMountpoints(zfsDisk, []byte(blockDevicesJSON))
 		if err != nil {
@@ -214,23 +213,23 @@ func unmountDisks(execute bool, configData *config.Config) error {
 
 		// Add ZFS disk mountpoints to our list
 		for _, mp := range zfsMountPoints {
-			log.Printf("Found mountpoint on ZFS disk: %s", mp)
+			sysutil.Info("Found mountpoint on ZFS disk: %s", mp)
 			allMountPoints = append(allMountPoints, mp)
 		}
 	}
 
 	// If mountpoints have been found, unmount them
 	if len(allMountPoints) > 0 {
-		log.Printf("Found %d mountpoints to unmount", len(allMountPoints))
+		sysutil.Info("Found %d mountpoints to unmount", len(allMountPoints))
 		err = sysutil.UnmountAll(execute, allMountPoints)
 		if err != nil {
 			return fmt.Errorf("failed to unmount all mountpoints: %w", err)
 		}
 	} else {
-		log.Println("No mountpoints found, nothing to unmount")
+		sysutil.Info("No mountpoints found, nothing to unmount")
 	}
 
-	log.Println("--- Unmounting Disks Complete ---")
+	sysutil.Info("--- Unmounting Disks Complete ---")
 	return nil
 }
 
@@ -246,7 +245,7 @@ func wipeAndPartitionDisks(
 		ZFSPool:     []string{},
 	}
 
-	log.Println("--- Partitioning Disks ---")
+	sysutil.Info("--- Partitioning Disks ---")
 
 	// Process UEFI disk
 	if err := processUEFIDisk(execute, configData, &partInfo); err != nil {
@@ -263,7 +262,7 @@ func wipeAndPartitionDisks(
 		return PartitionInfo{}, err
 	}
 
-	log.Println("--- Disk Wiping and Partitioning Complete ---")
+	sysutil.Info("--- Disk Wiping and Partitioning Complete ---")
 	return partInfo, nil
 }
 
@@ -350,7 +349,7 @@ func partitionUEFIDisk(
 	partitionNameUEFI = fmt.Sprintf("%s-part%d", configData.UEFI.Disk, partitionNumberUEFI)
 	partitionSizeUEFI := configData.UEFI.Size
 
-	log.Printf("Partitioning UEFI disk: %s\n", configData.UEFI.Disk)
+	sysutil.Info("Partitioning UEFI disk: %s", configData.UEFI.Disk)
 
 	// Wipe the disk
 	err = wipeDisk(execute, configData.UEFI.Disk)
@@ -385,14 +384,14 @@ func partitionUEFIDisk(
 	)
 	if err != nil {
 		// Log print error but don't fail the whole operation
-		log.Printf(
-			"Warning: sgdisk --print failed for %s after partitioning: %v",
+		sysutil.Warn(
+			"sgdisk --print failed for %s after partitioning: %v",
 			configData.UEFI.Disk,
 			err,
 		)
 	}
 
-	log.Printf("Formatting UEFI partition: %s\n", partitionNameUEFI)
+	sysutil.Info("Formatting UEFI partition: %s", partitionNameUEFI)
 
 	// Format the UEFI partition
 	err = formatPartition(
@@ -425,8 +424,8 @@ func partitionNixOSConfigDisk(
 	}
 	partitionNameNixOSConfig = fmt.Sprintf("%s-part%d", nixosConfigDisk, partitionNumberNixOSConfig)
 
-	log.Printf(
-		"Partitioning NixOS configuration on disk: %s using partition %d.\n",
+	sysutil.Info(
+		"Partitioning NixOS configuration on disk: %s using partition %d.",
 		nixosConfigDisk,
 		partitionNumberNixOSConfig,
 	)
@@ -458,14 +457,14 @@ func partitionNixOSConfigDisk(
 	)
 	if err != nil {
 		// Log print error but don't fail the whole operation
-		log.Printf(
-			"Warning: sgdisk --print failed for %s after partitioning: %v",
+		sysutil.Warn(
+			"sgdisk --print failed for %s after partitioning: %v",
 			nixosConfigDisk,
 			err,
 		)
 	}
 
-	log.Printf("Formatting NixOS config partition: %s\n", partitionNameNixOSConfig)
+	sysutil.Info("Formatting NixOS config partition: %s", partitionNameNixOSConfig)
 
 	// Format the NixOS config partition
 	err = formatPartition(
@@ -487,7 +486,7 @@ func partitionNixOSConfigDisk(
 
 // partitionZFSDisk creates a single partition on a ZFS disk for use in the pool.
 func partitionZFSDisk(execute bool, diskPath string, diskType string) error {
-	log.Printf("Partitioning ZFS %s disk: %s", diskType, diskPath)
+	sysutil.Info("Partitioning ZFS %s disk: %s", diskType, diskPath)
 
 	// Create a single partition that uses the entire disk
 	_, err := sysutil.Execute(
@@ -512,8 +511,8 @@ func partitionZFSDisk(execute bool, diskPath string, diskType string) error {
 	)
 	if err != nil {
 		// Log print error but don't fail the whole operation
-		log.Printf(
-			"Warning: sgdisk --print failed for %s disk %s after partitioning: %v",
+		sysutil.Warn(
+			"sgdisk --print failed for %s disk %s after partitioning: %v",
 			diskType,
 			diskPath,
 			err,
@@ -523,7 +522,7 @@ func partitionZFSDisk(execute bool, diskPath string, diskType string) error {
 	// After partitioning, we must wait for the partition device to appear.
 	// This is crucial because 'zpool create' will fail if the device node doesn't exist yet.
 	if execute {
-		log.Printf("Waiting for partition on %s to become available...", diskPath)
+		sysutil.Info("Waiting for partition on %s to become available...", diskPath)
 
 		// The standard for /dev/disk/by-id partition links is to use the "-partN" suffix.
 		expectedPartitionPath := fmt.Sprintf("%s-part1", diskPath)
@@ -537,8 +536,8 @@ func partitionZFSDisk(execute bool, diskPath string, diskType string) error {
 			// We do this in the loop in case it takes a moment to process.
 			_, err := sysutil.Execute(true, sysutil.ModeSilent, "partprobe", diskPath)
 			if err != nil {
-				log.Printf(
-					"Warning: partprobe failed on attempt %d for %s: %v",
+				sysutil.Warn(
+					"partprobe failed on attempt %d for %s: %v",
 					attempt,
 					diskPath,
 					err,
@@ -547,13 +546,13 @@ func partitionZFSDisk(execute bool, diskPath string, diskType string) error {
 
 			// Check if the partition file exists.
 			if _, err := os.Stat(expectedPartitionPath); err == nil {
-				log.Printf("Partition %s found after attempt %d.", expectedPartitionPath, attempt)
+				sysutil.Info("Partition %s found after attempt %d.", expectedPartitionPath, attempt)
 				found = true
 				break // Success!
 			}
 
 			// If not found, wait before retrying.
-			log.Printf(
+			sysutil.Info(
 				"Partition %s not yet found. Waiting... (attempt %d/%d)",
 				expectedPartitionPath,
 				attempt,
@@ -578,7 +577,7 @@ func partitionZFSDisk(execute bool, diskPath string, diskType string) error {
 // findDiskIDByID finds the canonical /dev/disk/by-id path for a single disk.
 // It resolves the input path to a base device and searches for a matching by-id link.
 func findDiskIDByID(execute bool, diskPath string) (string, error) {
-	log.Printf("Finding by-id path for disk: %s", diskPath)
+	sysutil.Info("Finding by-id path for disk: %s", diskPath)
 
 	// 1. Resolve input to base device path (e.g., /dev/sda, /dev/nvme0n1)
 	// Always execute readlink to resolve the path, even in dry-run, for accuracy.
@@ -592,8 +591,8 @@ func findDiskIDByID(execute bool, diskPath string) (string, error) {
 	if err != nil {
 		// If readlink fails, maybe the path is already the base path? Check if it exists.
 		if _, statErr := os.Stat(diskPath); statErr == nil {
-			log.Printf(
-				"Warning: readlink failed for %s (%v), assuming it's already the base path.",
+			sysutil.Warn(
+				"readlink failed for %s (%v), assuming it's already the base path.",
 				diskPath,
 				err,
 			)
@@ -603,7 +602,7 @@ func findDiskIDByID(execute bool, diskPath string) (string, error) {
 		}
 	}
 	baseDevicePath := strings.TrimSpace(baseDevicePathOutput)
-	log.Printf("Resolved %s to base device path: %s", diskPath, baseDevicePath)
+	sysutil.Info("Resolved %s to base device path: %s", diskPath, baseDevicePath)
 
 	// 2. Retry finding the matching by-id link
 	const maxAttempts = 5
@@ -633,21 +632,21 @@ func findDiskIDByID(execute bool, diskPath string) (string, error) {
 			)
 			if err != nil {
 				// Log warning but continue checking other links
-				log.Printf("Warning: could not resolve symlink %s: %v", byIDPath, err)
+				sysutil.Warn("could not resolve symlink %s: %v", byIDPath, err)
 				continue
 			}
 			resolvedLink := strings.TrimSpace(resolvedLinkOutput)
 
 			// Check if it matches the base device path *exactly*
 			if resolvedLink == baseDevicePath {
-				log.Printf("Found matching by-id path: %s -> %s", byIDPath, resolvedLink)
+				sysutil.Info("Found matching by-id path: %s -> %s", byIDPath, resolvedLink)
 				return byIDPath, nil // Success!
 			}
 		}
 
 		// If not found, wait and maybe trigger udev
 		if attempt < maxAttempts {
-			log.Printf(
+			sysutil.Info(
 				"Matching by-id path for %s not found (attempt %d/%d). Waiting...",
 				baseDevicePath,
 				attempt,
@@ -663,7 +662,7 @@ func findDiskIDByID(execute bool, diskPath string) (string, error) {
 					"--timeout=5",
 				)
 				if err != nil {
-					log.Printf("Warning: udevadm settle failed: %v", err)
+					sysutil.Warn("udevadm settle failed: %v", err)
 				}
 			}
 			time.Sleep(retryDelay)
@@ -671,8 +670,8 @@ func findDiskIDByID(execute bool, diskPath string) (string, error) {
 	}
 
 	// If still not found after retries
-	log.Printf(
-		"Error: Could not find a /dev/disk/by-id/ link pointing to %s after %d attempts.",
+	sysutil.Error(
+		"Could not find a /dev/disk/by-id/ link pointing to %s after %d attempts.",
 		baseDevicePath,
 		maxAttempts,
 	)
@@ -687,24 +686,24 @@ func findDiskIDByID(execute bool, diskPath string) (string, error) {
 // It replaces the old getZFSDiskIDs function.
 // If the provided diskPaths is empty, will return an empty string.
 func getDiskIDsByID(execute bool, diskPaths []string) ([]string, error) {
-	log.Println("--- Retrieving Disk IDs by /dev/disk/by-id ---")
+	sysutil.Info("--- Retrieving Disk IDs by /dev/disk/by-id ---")
 	diskIDs := make([]string, len(diskPaths))
 	var errorsCollected []error
 
 	for i, p := range diskPaths {
 		diskID, err := findDiskIDByID(execute, p)
 		if err != nil {
-			log.Printf("Error finding ID for disk %s: %v", p, err)
+			sysutil.Error("finding ID for disk %s: %v", p, err)
 			// Collect errors to report all failures at the end
 			errorsCollected = append(errorsCollected, fmt.Errorf("disk '%s': %w", p, err))
 			diskIDs[i] = "" // Indicate failure for this disk
 		} else {
 			diskIDs[i] = diskID
-			log.Printf("Successfully found ID for disk %d (%s): %s", i+1, p, diskID)
+			sysutil.Info("Successfully found ID for disk %d (%s): %s", i+1, p, diskID)
 		}
 	}
 
-	log.Println("--- Disk ID Retrieval Complete ---")
+	sysutil.Info("--- Disk ID Retrieval Complete ---")
 	if len(errorsCollected) > 0 {
 		// Combine errors into a single error message
 		errorStrings := make([]string, len(errorsCollected))
@@ -723,13 +722,13 @@ func getDiskIDsByID(execute bool, diskPaths []string) ([]string, error) {
 // wipeDisk thoroughly wipes a disk's partition tables and filesystem signatures.
 // It uses multiple methods to ensure the disk is completely clean before partitioning.
 func wipeDisk(execute bool, diskPath string) error {
-	log.Printf("Wiping disk completely: %s\n", diskPath)
+	sysutil.Info("Wiping disk completely: %s", diskPath)
 
 	// First try to clean ZFS-specific issues
 	err := cleanZFSDisk(execute, diskPath)
 	if err != nil {
-		log.Printf(
-			"Warning: Failed to clean disk using ZFS, trying fallback options for %s: %v",
+		sysutil.Warn(
+			"Failed to clean disk using ZFS, trying fallback options for %s: %v",
 			diskPath,
 			err,
 		)
@@ -748,7 +747,7 @@ func wipeDisk(execute bool, diskPath string) error {
 		resolvedPath,
 	)
 	if err != nil {
-		log.Printf("Warning: sgdisk --zap-all failed for %s: %v", resolvedPath, err)
+		sysutil.Warn("sgdisk --zap-all failed for %s: %v", resolvedPath, err)
 	}
 
 	// Try to wipe with wipefs
@@ -760,7 +759,7 @@ func wipeDisk(execute bool, diskPath string) error {
 		resolvedPath,
 	)
 	if err != nil {
-		log.Printf("Warning: wipefs failed, trying another method for %s: %v", resolvedPath, err)
+		sysutil.Warn("wipefs failed, trying another method for %s: %v", resolvedPath, err)
 
 		// Use dd to wipe the beginning of the disk
 		_, err = sysutil.Execute(
@@ -774,13 +773,13 @@ func wipeDisk(execute bool, diskPath string) error {
 			"conv=fsync",
 		)
 		if err != nil {
-			log.Printf("Warning: dd zeroing failed for %s: %v", resolvedPath, err)
+			sysutil.Warn("dd zeroing failed for %s: %v", resolvedPath, err)
 		}
 	}
 
 	// Tell udev to settle down to ensure the kernel recognizes the wipe.
 	if _, settleErr := sysutil.Execute(execute, sysutil.ModeNormal, "udevadm", "settle"); settleErr != nil {
-		log.Printf("Warning: udevadm settle after wipe failed for %s: %v", resolvedPath, settleErr)
+		sysutil.Warn("udevadm settle after wipe failed for %s: %v", resolvedPath, settleErr)
 	}
 
 	// Use sgdisk to create a new GPT
@@ -792,14 +791,14 @@ func wipeDisk(execute bool, diskPath string) error {
 		resolvedPath,
 	)
 	if err != nil {
-		log.Printf("Warning: sgdisk --clear failed for %s: %v", resolvedPath, err)
+		sysutil.Warn("sgdisk --clear failed for %s: %v", resolvedPath, err)
 		return fmt.Errorf("failed to clear partition table on %s: %w", resolvedPath, err)
 	}
 
 	// Wait for changes to be recognized by the system by settling udev.
-	log.Println("Waiting for disk changes to be recognized...")
+	sysutil.Info("Waiting for disk changes to be recognized...")
 	if _, settleErr := sysutil.Execute(execute, sysutil.ModeNormal, "udevadm", "settle"); settleErr != nil {
-		log.Printf("Warning: udevadm settle after clear failed for %s: %v", resolvedPath, settleErr)
+		sysutil.Warn("udevadm settle after clear failed for %s: %v", resolvedPath, settleErr)
 	}
 
 	return nil
@@ -826,13 +825,13 @@ func resolveDevicePath(_ bool, diskPath string) string {
 	if err == nil {
 		resolvedPath := strings.TrimSpace(deviceOutput)
 		if resolvedPath != "" {
-			log.Printf("Resolved %s to %s", diskPath, resolvedPath)
+			sysutil.Info("Resolved %s to %s", diskPath, resolvedPath)
 			return resolvedPath
 		}
 	}
 
 	// If readlink fails, we can log a warning.
-	log.Printf("Warning: could not resolve symlink %s: %v. Using original path.", diskPath, err)
+	sysutil.Warn("could not resolve symlink %s: %v. Using original path.", diskPath, err)
 	return diskPath // Return original if resolution fails
 }
 
@@ -855,45 +854,45 @@ func findPartitionDevicePath(
 	if strings.HasPrefix(baseDiskPath, "/dev/") {
 		baseDiskName := path.Base(baseDiskPath)
 		directPartitionPath := fmt.Sprintf("/dev/%s%d", baseDiskName, partitionNumber)
-		log.Printf("Checking for direct device path: %s", directPartitionPath)
+		sysutil.Info("Checking for direct device path: %s", directPartitionPath)
 
 		// Check multiple times for the direct path
 		for attempt := 1; attempt <= 5; attempt++ {
 			if _, err := os.Stat(directPartitionPath); err == nil {
-				log.Printf("Found direct partition path: %s", directPartitionPath)
+				sysutil.Info("Found direct partition path: %s", directPartitionPath)
 				return directPartitionPath
 			}
 
 			_, err := sysutil.Execute(execute, sysutil.ModeSilent, "partprobe", baseDiskPath)
 			if err != nil {
-				log.Printf("Warning: partprobe failed for %s: %v", baseDiskPath, err)
+				sysutil.Warn("partprobe failed for %s: %v", baseDiskPath, err)
 			}
-			log.Printf("Waiting for direct device path (attempt %d of 5)...", attempt)
+			sysutil.Info("Waiting for direct device path (attempt %d of 5)...", attempt)
 			time.Sleep(2 * time.Second)
 		}
 	}
 
 	// If direct path failed, try the by-id path
-	log.Printf("Checking for by-id device path: %s", originalPartitionPath)
+	sysutil.Info("Checking for by-id device path: %s", originalPartitionPath)
 	for attempt := 1; attempt <= 5; attempt++ {
 		if _, err := os.Stat(originalPartitionPath); err == nil {
-			log.Printf("Found by-id partition path: %s", originalPartitionPath)
+			sysutil.Info("Found by-id partition path: %s", originalPartitionPath)
 			return originalPartitionPath
 		}
 
 		_, err := sysutil.Execute(execute, sysutil.ModeSilent, "partprobe", diskPath)
 		if err != nil {
-			log.Printf("Warning: partprobe failed for %s: %v", diskPath, err)
+			sysutil.Warn("partprobe failed for %s: %v", diskPath, err)
 		}
-		log.Printf("Waiting for by-id device path (attempt %d of 5)...", attempt)
+		sysutil.Info("Waiting for by-id device path (attempt %d of 5)...", attempt)
 		time.Sleep(2 * time.Second)
 	}
 
 	// Last resort - run partprobe globally
-	log.Printf("Running partprobe globally to update all partition tables...")
+	sysutil.Info("Running partprobe globally to update all partition tables...")
 	_, err := sysutil.Execute(execute, sysutil.ModeSilent, "partprobe")
 	if err != nil {
-		log.Printf("Warning: partprobe failed: %v", err)
+		sysutil.Warn("partprobe failed: %v", err)
 	}
 	time.Sleep(3 * time.Second)
 
@@ -902,7 +901,7 @@ func findPartitionDevicePath(
 		baseDiskName := path.Base(baseDiskPath)
 		directPartitionPath := fmt.Sprintf("/dev/%s%d", baseDiskName, partitionNumber)
 		if _, err := os.Stat(directPartitionPath); err == nil {
-			log.Printf(
+			sysutil.Info(
 				"Found direct partition path after global partprobe: %s",
 				directPartitionPath,
 			)
@@ -911,8 +910,8 @@ func findPartitionDevicePath(
 	}
 
 	// If we still don't have a path, warn but return empty string
-	log.Printf(
-		"Warning: Could not find a usable device path for partition %d on %s",
+	sysutil.Warn(
+		"Could not find a usable device path for partition %d on %s",
 		partitionNumber,
 		diskPath,
 	)
@@ -930,7 +929,7 @@ func formatPartition(
 	formatArgs ...string,
 ) error {
 	if execute {
-		log.Printf("Waiting for partition device to be available: %s\n", partitionNameOriginal)
+		sysutil.Info("Waiting for partition device to be available: %s", partitionNameOriginal)
 
 		// Try to find a usable device path
 		devicePath := findPartitionDevicePath(
@@ -942,11 +941,11 @@ func formatPartition(
 
 		// If no path was found, fall back to the original
 		if devicePath == "" {
-			log.Printf("Warning: Using original path as fallback: %s", partitionNameOriginal)
+			sysutil.Warn("Using original path as fallback: %s", partitionNameOriginal)
 			devicePath = partitionNameOriginal
 		}
 
-		log.Printf("Formatting partition using device path: %s\n", devicePath)
+		sysutil.Info("Formatting partition using device path: %s", devicePath)
 
 		// Prepare command arguments
 		allArgs := append([]string{formatCmd}, formatArgs...)
@@ -967,7 +966,7 @@ func formatPartition(
 		// In dry-run mode, log what would happen
 		allArgs := append([]string{formatCmd}, formatArgs...)
 		allArgs = append(allArgs, partitionNameOriginal)
-		log.Printf("Would format partition: %s using command: %s", partitionNameOriginal, strings.Join(allArgs, " "))
+		sysutil.Info("Would format partition: %s using command: %s", partitionNameOriginal, strings.Join(allArgs, " "))
 	}
 
 	return nil
@@ -975,7 +974,7 @@ func formatPartition(
 
 //nolint:gocyclo // cleanZFSDisk properly handles ZFS disk cleaning
 func cleanZFSDisk(execute bool, diskPath string) error {
-	log.Printf("Performing thorough ZFS cleanup for disk: %s", diskPath)
+	sysutil.Info("Performing thorough ZFS cleanup for disk: %s", diskPath)
 
 	// Step 1: Try to offline the disk from any active pools
 	poolInfo, err := sysutil.Execute(
@@ -1012,7 +1011,7 @@ func cleanZFSDisk(execute bool, diskPath string) error {
 					}
 
 					if poolName != "" {
-						log.Printf(
+						sysutil.Info(
 							"Found disk %s in pool %s, trying to offline",
 							baseDiskName,
 							poolName,
@@ -1028,8 +1027,8 @@ func cleanZFSDisk(execute bool, diskPath string) error {
 							resolvedPath,
 						)
 						if err != nil {
-							log.Printf(
-								"Warning: Could not offline disk %s from pool %s: %v",
+							sysutil.Warn(
+								"Could not offline disk %s from pool %s: %v",
 								baseDiskName,
 								poolName,
 								err,
@@ -1046,7 +1045,7 @@ func cleanZFSDisk(execute bool, diskPath string) error {
 							poolName,
 						)
 						if err != nil {
-							log.Printf("Warning: Could not export pool %s: %v", poolName, err)
+							sysutil.Warn("Could not export pool %s: %v", poolName, err)
 						}
 					}
 					break
@@ -1065,7 +1064,7 @@ func cleanZFSDisk(execute bool, diskPath string) error {
 		diskPath,
 	)
 	if err != nil {
-		log.Printf("Warning: zpool labelclear failed for %s: %v", diskPath, err)
+		sysutil.Warn("zpool labelclear failed for %s: %v", diskPath, err)
 	}
 
 	// Step 3: Force destroy any remaining pools on this disk
@@ -1092,7 +1091,7 @@ func cleanZFSDisk(execute bool, diskPath string) error {
 			"-a",
 		)
 		if err != nil {
-			log.Printf("Warning: Failed to import pools for destruction from %s: %v", diskPath, err)
+			sysutil.Warn("Failed to import pools for destruction from %s: %v", diskPath, err)
 		} else {
 			// Get pool names
 			poolNames, err := sysutil.Execute(
@@ -1107,7 +1106,7 @@ func cleanZFSDisk(execute bool, diskPath string) error {
 			if err == nil {
 				for _, pool := range strings.Split(strings.TrimSpace(poolNames), "\n") {
 					if pool != "" {
-						log.Printf("Destroying imported pool: %s", pool)
+						sysutil.Info("Destroying imported pool: %s", pool)
 						_, err = sysutil.Execute(
 							execute,
 							sysutil.ModeNormal,
@@ -1117,7 +1116,7 @@ func cleanZFSDisk(execute bool, diskPath string) error {
 							pool,
 						)
 						if err != nil {
-							log.Printf("Warning: Failed to destroy pool %s: %v", pool, err)
+							sysutil.Warn("Failed to destroy pool %s: %v", pool, err)
 						}
 					}
 				}
@@ -1149,7 +1148,7 @@ func forceUnmountMountpoints(execute bool) error {
 			if len(fields) >= minFieldCount {
 				mountpointFound := fields[1]
 				if strings.HasPrefix(mountpointFound, mountPoint) {
-					log.Printf("Force unmounting: %s", mountpointFound)
+					sysutil.Info("Force unmounting: %s", mountpointFound)
 					// Use Linux umount with force and detach options
 					_, err := sysutil.Execute(
 						execute,
@@ -1160,7 +1159,7 @@ func forceUnmountMountpoints(execute bool) error {
 						mountpointFound,
 					)
 					if err != nil {
-						log.Printf("Warning: Failed to force unmount %s: %v", mountpointFound, err)
+						sysutil.Warn("Failed to force unmount %s: %v", mountpointFound, err)
 					}
 				}
 			}

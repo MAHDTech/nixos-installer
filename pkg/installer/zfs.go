@@ -2,7 +2,6 @@ package installer
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"time"
@@ -107,35 +106,35 @@ func buildZFSPoolArgs(zfsPoolType string, partitions ZFSPartitions) ([]string, e
 	switch zfsPoolType {
 	case "single":
 		// Single disk pool
-		log.Println("Creating single-disk ZFS pool")
+		sysutil.Info("Creating single-disk ZFS pool")
 		zfsPoolArgs = append(zfsPoolArgs, partitions.Data[0])
 
 	case "mirror":
 		// Mirror pool
-		log.Println("Creating mirrored ZFS pool")
+		sysutil.Info("Creating mirrored ZFS pool")
 		zfsPoolArgs = append(zfsPoolArgs, "mirror")
 		zfsPoolArgs = append(zfsPoolArgs, partitions.Data...)
 
 	case "stripe":
 		// Stripe pool (no special keyword needed)
-		log.Println("Creating striped ZFS pool")
+		sysutil.Info("Creating striped ZFS pool")
 		zfsPoolArgs = append(zfsPoolArgs, partitions.Data...)
 
 	case "raidz":
 		// RAID-Z pool
-		log.Println("Creating RAID-Z ZFS pool")
+		sysutil.Info("Creating RAID-Z ZFS pool")
 		zfsPoolArgs = append(zfsPoolArgs, "raidz")
 		zfsPoolArgs = append(zfsPoolArgs, partitions.Data...)
 
 	case "raidz2":
 		// RAID-Z2 pool
-		log.Println("Creating RAID-Z2 ZFS pool")
+		sysutil.Info("Creating RAID-Z2 ZFS pool")
 		zfsPoolArgs = append(zfsPoolArgs, "raidz2")
 		zfsPoolArgs = append(zfsPoolArgs, partitions.Data...)
 
 	case "raidz3":
 		// RAID-Z3 pool
-		log.Println("Creating RAID-Z3 ZFS pool")
+		sysutil.Info("Creating RAID-Z3 ZFS pool")
 		zfsPoolArgs = append(zfsPoolArgs, "raidz3")
 		zfsPoolArgs = append(zfsPoolArgs, partitions.Data...)
 
@@ -153,21 +152,21 @@ func buildZFSPoolArgs(zfsPoolType string, partitions ZFSPartitions) ([]string, e
 func appendSpecialDevices(zfsPoolArgs []string, partitions ZFSPartitions) []string {
 	// Add cache devices if specified
 	if len(partitions.Cache) > 0 {
-		log.Printf("Adding %d cache device(s) to ZFS pool", len(partitions.Cache))
+		sysutil.Info("Adding %d cache device(s) to ZFS pool", len(partitions.Cache))
 		zfsPoolArgs = append(zfsPoolArgs, "cache")
 		zfsPoolArgs = append(zfsPoolArgs, partitions.Cache...)
 	}
 
 	// Add log devices if specified
 	if len(partitions.Log) > 0 {
-		log.Printf("Adding %d log device(s) to ZFS pool", len(partitions.Log))
+		sysutil.Info("Adding %d log device(s) to ZFS pool", len(partitions.Log))
 		zfsPoolArgs = append(zfsPoolArgs, "log")
 		zfsPoolArgs = append(zfsPoolArgs, partitions.Log...)
 	}
 
 	// Add spare devices if specified
 	if len(partitions.Spare) > 0 {
-		log.Printf("Adding %d spare device(s) to ZFS pool", len(partitions.Spare))
+		sysutil.Info("Adding %d spare device(s) to ZFS pool", len(partitions.Spare))
 		zfsPoolArgs = append(zfsPoolArgs, "spare")
 		zfsPoolArgs = append(zfsPoolArgs, partitions.Spare...)
 	}
@@ -185,16 +184,16 @@ func executeZFSPoolCreation(
 	zfsPoolArgs []string,
 	partitions ZFSPartitions,
 ) error {
-	log.Printf("Creating ZFS pool %s", zfsPoolName)
-	log.Printf("Data partitions: %v", partitions.Data)
+	sysutil.Info("Creating ZFS pool %s", zfsPoolName)
+	sysutil.Info("Data partitions: %v", partitions.Data)
 	if len(partitions.Cache) > 0 {
-		log.Printf("Cache partitions: %v", partitions.Cache)
+		sysutil.Info("Cache partitions: %v", partitions.Cache)
 	}
 	if len(partitions.Log) > 0 {
-		log.Printf("Log partitions: %v", partitions.Log)
+		sysutil.Info("Log partitions: %v", partitions.Log)
 	}
 	if len(partitions.Spare) > 0 {
-		log.Printf("Spare partitions: %v", partitions.Spare)
+		sysutil.Info("Spare partitions: %v", partitions.Spare)
 	}
 
 	// Prepare common pool arguments
@@ -225,7 +224,7 @@ func executeZFSPoolCreation(
 		zfsPoolCreateArgs,
 		"-R", mountPoint,
 	)
-	log.Printf("Setting altroot mountpoint for ZFS pool: %s", mountPoint)
+	sysutil.Info("Setting altroot mountpoint for ZFS pool: %s", mountPoint)
 
 	// Add pool name
 	zfsPoolCreateArgs = append(zfsPoolCreateArgs, zfsPoolName)
@@ -234,7 +233,7 @@ func executeZFSPoolCreation(
 	zfsPoolCreateArgs = append(zfsPoolCreateArgs, zfsPoolArgs...)
 
 	// DEBUG: Print the pool creation arguments
-	log.Printf("ZFS pool creation arguments: %v", zfsPoolCreateArgs)
+	sysutil.Info("ZFS pool creation arguments: %v", zfsPoolCreateArgs)
 
 	// Execute the pool creation command
 	_, err := sysutil.Execute(
@@ -258,7 +257,7 @@ func createZFSDatasets(
 	configData *config.Config,
 ) error {
 
-	log.Printf("--- Creating ZFS Datasets on pool %s ---", zfsPoolName)
+	sysutil.Info("--- Creating ZFS Datasets on pool %s ---", zfsPoolName)
 
 	// Create datasets in order
 	if err := createBootDataset(execute, zfsPoolName); err != nil {
@@ -287,11 +286,11 @@ func createZFSDatasets(
 
 	// Wait a bit for ZFS changes to settle
 	if execute {
-		log.Println("Waiting for ZFS changes to settle...")
+		sysutil.Info("Waiting for ZFS changes to settle...")
 		time.Sleep(5 * time.Second)
 	}
 
-	log.Println("--- ZFS Dataset Creation Complete ---")
+	sysutil.Info("--- ZFS Dataset Creation Complete ---")
 	return nil
 }
 
@@ -299,7 +298,7 @@ func createZFSDatasets(
 func createBootDataset(execute bool, zfsPoolName string) error {
 	zfsDatasetPathBoot := path.Join(zfsPoolName, zfsDatasetBoot)
 
-	log.Printf("Creating ZFS dataset: %s\n", zfsDatasetPathBoot)
+	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathBoot)
 	_, err := sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
@@ -320,7 +319,7 @@ func createBootDataset(execute bool, zfsPoolName string) error {
 	}
 
 	// Set the bootfs property on the boot pool
-	log.Printf("Setting bootfs property on %s to %s.\n", zfsPoolName, zfsDatasetPathBoot)
+	sysutil.Info("Setting bootfs property on %s to %s.", zfsPoolName, zfsDatasetPathBoot)
 	_, err = sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
@@ -339,8 +338,8 @@ func createBootDataset(execute bool, zfsPoolName string) error {
 			zfsDatasetPathBoot,
 		)
 		if errUnmount != nil {
-			log.Printf(
-				"Warning! Failed to unmount temporary root mount %s: %v\n",
+			sysutil.Warn(
+				"Failed to unmount temporary root mount %s: %v",
 				zfsDatasetPathBoot,
 				errUnmount,
 			)
@@ -355,7 +354,7 @@ func createBootDataset(execute bool, zfsPoolName string) error {
 func createRootDataset(execute bool, zfsPoolName string) error {
 	zfsDatasetPathRoot := path.Join(zfsPoolName, zfsDatasetRoot)
 
-	log.Printf("Creating ZFS dataset: %s", zfsDatasetPathRoot)
+	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathRoot)
 	_, err := sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
@@ -376,7 +375,7 @@ func createRootDataset(execute bool, zfsPoolName string) error {
 	}
 
 	// Set the bootfs property on the pool
-	log.Printf("Setting bootfs property on %s to %s", zfsPoolName, zfsDatasetPathRoot)
+	sysutil.Info("Setting bootfs property on %s to %s", zfsPoolName, zfsDatasetPathRoot)
 	_, err = sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
@@ -395,8 +394,8 @@ func createRootDataset(execute bool, zfsPoolName string) error {
 			zfsDatasetPathRoot,
 		)
 		if errUnmount != nil {
-			log.Printf(
-				"Warning! Failed to unmount temporary root mount %s: %v",
+			sysutil.Warn(
+				"Failed to unmount temporary root mount %s: %v",
 				zfsDatasetPathRoot,
 				errUnmount,
 			)
@@ -411,7 +410,7 @@ func createRootDataset(execute bool, zfsPoolName string) error {
 func createBasicDatasets(execute bool, zfsPoolName string) error {
 	// --- Home Dataset ---
 	zfsDatasetPathHome := path.Join(zfsPoolName, zfsDatasetHome)
-	log.Printf("Creating ZFS dataset: %s\n", zfsDatasetPathHome)
+	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathHome)
 	_, err := sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
@@ -427,7 +426,7 @@ func createBasicDatasets(execute bool, zfsPoolName string) error {
 
 	// --- Nix Store Dataset ---
 	zfsDatasetPathNix := path.Join(zfsPoolName, zfsDatasetNixStore)
-	log.Printf("Creating ZFS dataset: %s\n", zfsDatasetPathNix)
+	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathNix)
 	_, err = sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
@@ -448,13 +447,13 @@ func createBasicDatasets(execute bool, zfsPoolName string) error {
 // createSwapDataset creates the swap dataset if enabled
 func createSwapDataset(execute bool, zfsPoolName string, configData *config.Config) error {
 	if !configData.Swap.Enabled {
-		log.Println("Skipping swap dataset creation as it is disabled.")
+		sysutil.Info("Skipping swap dataset creation as it is disabled.")
 		return nil
 	}
 
 	zfsDatasetPathSwap := path.Join(zfsPoolName, zfsDatasetSwap)
-	log.Printf(
-		"Creating ZFS swap volume: %s with size %s\n",
+	sysutil.Info(
+		"Creating ZFS swap volume: %s with size %s",
 		zfsDatasetPathSwap,
 		configData.Swap.Size,
 	)
@@ -495,36 +494,36 @@ func formatSwapDevice(execute bool, zfsDatasetPathSwap, zfsPoolName string) erro
 
 	// Wait for zvol device to appear
 	swapDevicePath := fmt.Sprintf("/dev/zvol/%s", zfsDatasetPathSwap)
-	log.Printf("Waiting for swap device to appear at %s", swapDevicePath)
+	sysutil.Info("Waiting for swap device to appear at %s", swapDevicePath)
 
 	// Try a few times with exponential backoff
 	for attempt := 1; attempt <= 5; attempt++ {
 		if _, err := os.Stat(swapDevicePath); err == nil {
-			log.Printf("Swap device found after %d attempts", attempt)
+			sysutil.Info("Swap device found after %d attempts", attempt)
 			break
 		}
 
 		// Trigger udev to reload devices
 		_, err := sysutil.Execute(execute, sysutil.ModeNormal, "udevadm", "trigger")
 		if err != nil {
-			log.Printf("Warning: udevadm trigger failed: %v", err)
+			sysutil.Warn("udevadm trigger failed: %v", err)
 		}
 		_, err = sysutil.Execute(execute, sysutil.ModeNormal, "udevadm", "settle")
 		if err != nil {
-			log.Printf("Warning: udevadm settle failed: %v", err)
+			sysutil.Warn("udevadm settle failed: %v", err)
 		}
 
 		// Check if the directory exists, create if needed
 		dir := path.Dir(swapDevicePath)
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			log.Printf("Creating directory: %s", dir)
+			sysutil.Info("Creating directory: %s", dir)
 			if err := os.MkdirAll(dir, 0750); err != nil {
-				log.Printf("Warning: Failed to create directory %s: %v", dir, err)
+				sysutil.Warn("Failed to create directory %s: %v", dir, err)
 			}
 		}
 
 		waitTime := time.Duration(attempt*2) * time.Second
-		log.Printf(
+		sysutil.Info(
 			"Waiting %v seconds for swap device (attempt %d/5)...",
 			waitTime.Seconds(),
 			attempt,
@@ -541,17 +540,17 @@ func formatSwapDevice(execute bool, zfsDatasetPathSwap, zfsPoolName string) erro
 		}
 
 		for _, altPath := range alternativePaths {
-			log.Printf("Checking alternative swap path: %s", altPath)
+			sysutil.Info("Checking alternative swap path: %s", altPath)
 			if _, err := os.Stat(altPath); err == nil {
 				swapDevicePath = altPath
-				log.Printf("Using alternative swap device path: %s", swapDevicePath)
+				sysutil.Info("Using alternative swap device path: %s", swapDevicePath)
 				break
 			}
 		}
 	}
 
 	// Then format swap using the confirmed path
-	log.Printf("Formatting swap volume: %s\n", swapDevicePath)
+	sysutil.Info("Formatting swap volume: %s", swapDevicePath)
 	_, err := sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
@@ -573,7 +572,7 @@ func formatSwapDevice(execute bool, zfsDatasetPathSwap, zfsPoolName string) erro
 func createSystemDatasets(execute bool, zfsPoolName string) error {
 	// --- Tmp Dataset ---
 	zfsDatasetPathTmp := path.Join(zfsPoolName, zfsDatasetTmp)
-	log.Printf("Creating ZFS dataset: %s\n", zfsDatasetPathTmp)
+	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathTmp)
 	_, err := sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
@@ -590,7 +589,7 @@ func createSystemDatasets(execute bool, zfsPoolName string) error {
 
 	// --- Var Dataset ---
 	zfsDatasetPathVar := path.Join(zfsPoolName, zfsDatasetVar)
-	log.Printf("Creating ZFS dataset: %s\n", zfsDatasetPathVar)
+	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathVar)
 	_, err = sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
@@ -606,7 +605,7 @@ func createSystemDatasets(execute bool, zfsPoolName string) error {
 
 	// --- Var/Lib Dataset ---
 	zfsDatasetPathLib := path.Join(zfsPoolName, zfsDatasetLib)
-	log.Printf("Creating ZFS dataset: %s\n", zfsDatasetPathLib)
+	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathLib)
 	_, err = sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
@@ -628,7 +627,7 @@ func createSystemDatasets(execute bool, zfsPoolName string) error {
 func createContainerDatasets(execute bool, zfsPoolName string) error {
 	// --- Var/Lib/Docker Dataset ---
 	zfsDatasetPathDocker := path.Join(zfsPoolName, zfsDatasetDocker)
-	log.Printf("Creating ZFS dataset: %s\n", zfsDatasetPathDocker)
+	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathDocker)
 	_, err := sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
@@ -645,7 +644,7 @@ func createContainerDatasets(execute bool, zfsPoolName string) error {
 
 	// --- Var/Lib/Containers Dataset ---
 	zfsDatasetPathContainers := path.Join(zfsPoolName, zfsDatasetContainers)
-	log.Printf("Creating ZFS dataset: %s\n", zfsDatasetPathContainers)
+	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathContainers)
 	_, err = sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
@@ -666,7 +665,7 @@ func createContainerDatasets(execute bool, zfsPoolName string) error {
 
 	// --- Var/Lib/Incus Dataset ---
 	zfsDatasetPathIncus := path.Join(zfsPoolName, zfsDatasetIncus)
-	log.Printf("Creating ZFS dataset: %s\n", zfsDatasetPathIncus)
+	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathIncus)
 	_, err = sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
@@ -687,7 +686,7 @@ func createContainerDatasets(execute bool, zfsPoolName string) error {
 
 	// --- Var/Lib/Incus/Storage-Pools Dataset ---
 	zfsDatasetPathIncusStoragePools := path.Join(zfsPoolName, zfsDatasetIncusStoragePools)
-	log.Printf("Creating ZFS dataset: %s\n", zfsDatasetPathIncusStoragePools)
+	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathIncusStoragePools)
 	_, err = sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,

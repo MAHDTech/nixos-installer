@@ -2,7 +2,6 @@ package installer
 
 import (
 	"fmt"
-	"log"
 	"path"
 	"strings"
 
@@ -19,7 +18,7 @@ func mountFileSystems(
 	partitionInfo PartitionInfo,
 	zfsPoolName string,
 ) error {
-	log.Println("Mounting filesystems...")
+	sysutil.Info("Mounting filesystems...")
 
 	// Define ZFS dataset paths
 	zfsDatasetPathBoot := path.Join(zfsPoolName, zfsDatasetBoot)
@@ -51,7 +50,7 @@ func mountFileSystems(
 	// 3. Mount the UEFI partition to "/boot/efi"
 	//    Example: /mnt/nixos + "/boot/efi"
 	mountPointUEFI := path.Join(mountPoint, "boot/efi")
-	log.Printf("Mounting UEFI partition %s to %s.\n", partitionInfo.UEFI, mountPointUEFI)
+	sysutil.Info("Mounting UEFI partition %s to %s.", partitionInfo.UEFI, mountPointUEFI)
 	_, err = sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
@@ -71,8 +70,8 @@ func mountFileSystems(
 	//    Example: /mnt/nixos + "/boot/nixos"
 	mountPointNixOSConfig := path.Join(mountPoint, "boot/nixos")
 	if configData.NixOS.Config.Enabled {
-		log.Printf(
-			"Mounting NixOS config partition %s to %s.\n",
+		sysutil.Info(
+			"Mounting NixOS config partition %s to %s.",
 			partitionInfo.NixOSConfig,
 			mountPointNixOSConfig,
 		)
@@ -95,7 +94,7 @@ func mountFileSystems(
 			)
 		}
 	} else {
-		log.Println("Skipping NixOS config partition mounting as it is disabled.")
+		sysutil.Info("Skipping NixOS config partition mounting as it is disabled.")
 	}
 
 	// 5. Mount the home dataset to the configured altroot
@@ -163,7 +162,7 @@ func mountFileSystems(
 	}
 
 	// 13. Set permissions for /tmp
-	log.Printf("Setting permissions for %s\n", mountPointTmp)
+	sysutil.Info("Setting permissions for %s", mountPointTmp)
 	_, err = sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
@@ -175,14 +174,14 @@ func mountFileSystems(
 		return fmt.Errorf("failed to set permissions for /tmp: %w", err)
 	}
 
-	log.Println("All filesystems mounted!")
+	sysutil.Info("All filesystems mounted!")
 	return nil
 }
 
 // mountZFSDataset ensures a ZFS dataset is mounted with its configured mountpoint
 // When altroot is used, ZFS will automatically use altroot + dataset mountpoint
 func mountZFSDataset(execute bool, dataset string) error {
-	log.Printf("Mount ZFS dataset %s to configured altroot", dataset)
+	sysutil.Info("Mount ZFS dataset %s to configured altroot", dataset)
 
 	// Check if the dataset is mounted
 	mountedOutput, err := sysutil.Execute(
@@ -198,7 +197,7 @@ func mountZFSDataset(execute bool, dataset string) error {
 
 	// If already mounted, we're done here.
 	if err == nil && strings.TrimSpace(mountedOutput) == "yes" {
-		log.Printf("Dataset %s is already mounted", dataset)
+		sysutil.Info("Dataset %s is already mounted", dataset)
 		return nil
 	}
 
