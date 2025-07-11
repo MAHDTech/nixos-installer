@@ -588,22 +588,6 @@ func createSystemDatasets(execute bool, zfsPoolName string) error {
 		return fmt.Errorf("failed to create tmp ZFS dataset %s: %w", zfsDatasetPathTmp, err)
 	}
 
-	// --- Usr Dataset ---
-	zfsDatasetPathUsr := path.Join(zfsPoolName, zfsDatasetUsr)
-	log.Printf("Creating ZFS dataset: %s\n", zfsDatasetPathUsr)
-	_, err = sysutil.Execute(
-		execute,
-		sysutil.ModeNormal,
-		"zfs",
-		"create",
-		"-o", "canmount=on",
-		"-o", "mountpoint=/usr",
-		zfsDatasetPathUsr,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create usr ZFS dataset %s: %w", zfsDatasetPathUsr, err)
-	}
-
 	// --- Var Dataset ---
 	zfsDatasetPathVar := path.Join(zfsPoolName, zfsDatasetVar)
 	log.Printf("Creating ZFS dataset: %s\n", zfsDatasetPathVar)

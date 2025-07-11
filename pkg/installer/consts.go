@@ -11,7 +11,6 @@ const (
 	zfsDatasetNixStore   = "nix"
 	zfsDatasetSwap       = "swap"
 	zfsDatasetTmp        = "tmp"
-	zfsDatasetUsr        = "usr"
 	zfsDatasetVar        = "var"
 	zfsDatasetLib        = "var/lib"
 	zfsDatasetDocker     = "var/lib/docker"
@@ -22,7 +21,7 @@ const (
 // The names of the tools that are required.
 var requiredTools = []string{
 	"zfs",
-	"zpool", 
+	"zpool",
 	"sgdisk",
 	"wipefs",
 	"mount",
