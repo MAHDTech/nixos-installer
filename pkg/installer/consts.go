@@ -20,9 +20,17 @@ const (
 )
 
 // The names of the tools that are required.
-const requiredTools = []string{
+var requiredTools = []string{
 	"zfs",
-	"zpool",
+	"zpool", 
 	"sgdisk",
-	"chicken-foot",
+	"wipefs",
+	"mount",
+	"umount",
+	"lsblk",
+	"readlink",
+	"partprobe",
+	"udevadm",
+	"dd",
+	"chmod",
 }

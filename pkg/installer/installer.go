@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os/exec"
 
 	config "github.com/MAHDTech/nixos-installer/pkg/config"
 )
@@ -90,15 +91,23 @@ func parseFlags() (*string, *bool, *bool, error) {
 
 // checkToolsInstalled checks if the required tools are installed
 func checkToolsInstalled() error {
-
+	log.Println("Checking for required tools...")
+	
+	missingTools := []string{}
 	for _, tool := range requiredTools {
 		if _, err := exec.LookPath(tool); err != nil {
-			return fmt.Errorf("%s", tool)
+			missingTools = append(missingTools, tool)
+		} else {
+			log.Printf("✓ Found tool: %s", tool)
 		}
 	}
-
+	
+	if len(missingTools) > 0 {
+		return fmt.Errorf("missing required tools: %v", missingTools)
+	}
+	
+	log.Println("All required tools are available")
 	return nil
-
 }
 
 // runPreparationPhase handles the preparation phase of installation
@@ -270,3 +279,4 @@ func runNixOSInstallationPhase(execute, executeInstall bool, configData *config.
 	log.Println("--- NixOS Installation Phase Complete ---")
 	return nil
 }
+
