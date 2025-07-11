@@ -2,7 +2,6 @@
 package installer
 
 import (
-	"flag"
 	"fmt"
 	"os/exec"
 
@@ -12,18 +11,12 @@ import (
 
 // Run function orchestrates the NixOS installation process.
 // Returns an error if any step of the installation fails.
-func Run() error {
+func Run(configFile string, execute bool, executeInstall bool) error {
 	sysutil.Section("NixOS Installation Process")
 
-	// Parse command line flags
-	configFile, execute, executeInstall, err := parseFlags()
-	if err != nil {
-		return fmt.Errorf("failed to parse flags: %w", err)
-	}
-
 	// Read and validate configuration
-	sysutil.Info("Reading and validating configuration from %s", *configFile)
-	configData, err := config.ReadConfig(*configFile)
+	sysutil.Info("Reading and validating configuration from %s", configFile)
+	configData, err := config.ReadConfig(configFile)
 	if err != nil {
 		return fmt.Errorf("failed to read or validate configuration: %w", err)
 	}
@@ -43,67 +36,39 @@ func Run() error {
 	sysutil.Info("Starting installation phases...")
 
 	progress.Increment()
-	if err := runPreparationPhase(*execute, configData); err != nil {
+	if err := runPreparationPhase(execute, configData); err != nil {
 		return err
 	}
 
 	progress.Increment()
-	partitionInfo, err := runDiskSetupPhase(*execute, configData)
+	partitionInfo, err := runDiskSetupPhase(execute, configData)
 	if err != nil {
 		return err
 	}
 
 	progress.Increment()
-	if err := runZFSSetupPhase(*execute, configData); err != nil {
+	if err := runZFSSetupPhase(execute, configData); err != nil {
 		return err
 	}
 
 	progress.Increment()
-	if err := runMountingPhase(*execute, configData, partitionInfo); err != nil {
+	if err := runMountingPhase(execute, configData, partitionInfo); err != nil {
 		return err
 	}
 
 	progress.Increment()
-	if err := runNixOSConfigurationPhase(*execute); err != nil {
+	if err := runNixOSConfigurationPhase(execute); err != nil {
 		return err
 	}
 
 	progress.Increment()
-	if err := runNixOSInstallationPhase(*execute, *executeInstall, configData); err != nil {
+	if err := runNixOSInstallationPhase(execute, executeInstall, configData); err != nil {
 		return err
 	}
 
 	progress.Complete()
 	sysutil.Success("NixOS installation process completed successfully")
 	return nil
-}
-
-// parseFlags parses and validates command line flags
-func parseFlags() (*string, *bool, *bool, error) {
-	configFile := flag.String(
-		"config",
-		"config.yaml",
-		"Path to the YAML configuration file.",
-	)
-	execute := flag.Bool(
-		"run",
-		false,
-		"Execute mode. (defaults to false which will run in dry-run mode.)",
-	)
-	executeInstall := flag.Bool(
-		"install",
-		false,
-		"Enable to automatically install NixOS. (defaults to false which only generates the NixOS configuration)",
-	)
-	flag.Parse()
-
-	if *execute {
-		sysutil.Info("Running in execute mode")
-	} else {
-		sysutil.Info("Running in dry run mode, see '-help' for more information")
-	}
-
-	return configFile, execute, executeInstall, nil
 }
 
 // checkToolsInstalled checks if the required tools are installed

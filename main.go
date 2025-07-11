@@ -15,10 +15,18 @@ import (
 func main() {
 	// Parse command line flags
 	var (
+		// Installer flags
+		configFile     = flag.String("config", "config.yaml", "Path to the YAML configuration file")
+		execute        = flag.Bool("run", false, "Execute mode (defaults to false which will run in dry-run mode)")
+		executeInstall = flag.Bool("install", false, "Enable to automatically install NixOS (defaults to false which only generates the NixOS configuration)")
+
+		// Logging flags
 		logFile      = flag.String("log-file", "nixos-installer.log", "Path to log file")
 		consoleLevel = flag.String("console-level", "INFO", "Console log level (DEBUG, INFO, WARN, ERROR)")
 		fileLevel    = flag.String("file-level", "DEBUG", "File log level (DEBUG, INFO, WARN, ERROR)")
-		showHelp     = flag.Bool("help", false, "Show help message")
+
+		// Help flag
+		showHelp = flag.Bool("help", false, "Show help message")
 	)
 	flag.Parse()
 
@@ -38,6 +46,10 @@ func main() {
 		fmt.Println("  ./nixos-installer -config=my-config.yaml")
 		fmt.Println("  ./nixos-installer -config=my-config.yaml -run -install")
 		fmt.Println("  ./nixos-installer -console-level=WARN -file-level=DEBUG")
+		fmt.Println()
+		fmt.Println("Configuration Options:")
+		fmt.Println("  -config can be a file path or a config name to fetch from GitHub")
+		fmt.Println("  Examples: -config=./config.yaml or -config=HYPERVISOR-1")
 		return
 	}
 
@@ -67,7 +79,14 @@ func main() {
 
 	sysutil.Info("Starting NixOS Installer...")
 
-	err = installer.Run()
+	// Log execution mode
+	if *execute {
+		sysutil.Info("Running in execute mode")
+	} else {
+		sysutil.Info("Running in dry run mode, see '-help' for more information")
+	}
+
+	err = installer.Run(*configFile, *execute, *executeInstall)
 	if err != nil {
 		sysutil.Error("Installation failed with error: %v", err)
 		os.Exit(1)
