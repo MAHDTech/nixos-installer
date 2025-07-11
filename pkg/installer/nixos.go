@@ -60,6 +60,7 @@ func installNixOS(
 			mountPoint,
 			"--flake",
 			configData.NixOS.Flake,
+			"--impure",
 		)
 		if err != nil {
 			return fmt.Errorf("failed during nixos-install execution: %w", err)
