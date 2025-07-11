@@ -5,7 +5,7 @@
 # Settings for NixOS
 nixos:
   # The host ID to use for the installation.
-  hostId: "def90001"
+  hostId: "def90003"
 
   # The flake to use for the installation.
   flake: github:MAHDTech/nix-config#HYPERVISOR-3
