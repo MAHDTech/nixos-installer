@@ -147,7 +147,14 @@ func mountFileSystems(
 		return fmt.Errorf("failed to mount incus filesystem: %w", err)
 	}
 
-	// 12. Mount the tmp dataset to the configured altroot
+	// 12. Mount the incus storage pools dataset to the configured altroot
+	//     Example: /mnt/nixos + "/var/lib/incus/storage-pools"
+	err = mountZFSDataset(execute, zfsDatasetPathIncusStoragePools)
+	if err != nil {
+		return fmt.Errorf("failed to mount incus storage pools filesystem: %w", err)
+	}
+
+	// 13. Mount the tmp dataset to the configured altroot
 	//     Example: /mnt/nixos + "/tmp"
 	mountPointTmp := path.Join(mountPoint, "tmp")
 	err = mountZFSDataset(execute, zfsDatasetPathTmp)
