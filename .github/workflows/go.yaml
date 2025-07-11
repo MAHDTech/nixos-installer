@@ -11,9 +11,8 @@ on:  # yamllint disable-line rule:truthy
     branches:
       - "trunk"
     paths:
-      - "*.go"
-      - go.mod
-      - go.sum
+      - .github/workflows/go.yaml
+      - src/**
 
 permissions:
   contents: read
@@ -29,6 +28,8 @@ env:
 
   # prettier-ignore
   GO111MODULE: on  # yamllint disable-line rule:truthy
+
+  GOHOME: src
 
 defaults:
   run:
@@ -72,28 +73,34 @@ jobs:
 
       - id: go_mod_download
         name: Get dependencies
-        run: go mod download
+        run: |
+          cd ${{ env.GOHOME }}
+          go mod download
 
       - id: go_test
         name: Go Test
         run: |
+          cd ${{ env.GOHOME }}
           go test -v ./...
 
       - id: go_staticcheck
         name: Go Staticcheck
         uses: dominikh/staticcheck-action@v1
         with:
+          working-directory: ${{ env.GOHOME }}
           version: "latest"
 
       - id: go_vet
         name: Go Vet
         run: |
+          cd ${{ env.GOHOME }}
           go vet ./...
 
       - id: go_lint
         name: Go Lint
         uses: golangci/golangci-lint-action@v7
         with:
+          working-directory: ${{ env.GOHOME }}
           version: latest
           args: >
             --config=.linters/config/.golangci.yml
@@ -103,4 +110,5 @@ jobs:
       - id: go_build
         name: Go Build
         run: |
+          cd ${{ env.GOHOME }}
           go build -v ./...

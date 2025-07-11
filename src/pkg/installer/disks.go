@@ -101,7 +101,11 @@ func unmountDisks(execute bool, configData *config.Config) error {
 					)
 					if unmountErr != nil {
 						if stderr != "" {
-							sysutil.Warn("Failed to unmount dataset %s: %s", dataset, strings.TrimSpace(stderr))
+							sysutil.Warn(
+								"Failed to unmount dataset %s: %s",
+								dataset,
+								strings.TrimSpace(stderr),
+							)
 						} else {
 							sysutil.Warn("Failed to unmount dataset %s: %v", dataset, unmountErr)
 						}
@@ -116,7 +120,11 @@ func unmountDisks(execute bool, configData *config.Config) error {
 						)
 						if forceErr != nil {
 							if forceStderr != "" {
-								sysutil.Warn("Force unmount also failed for %s: %s", dataset, strings.TrimSpace(forceStderr))
+								sysutil.Warn(
+									"Force unmount also failed for %s: %s",
+									dataset,
+									strings.TrimSpace(forceStderr),
+								)
 							} else {
 								sysutil.Warn("Force unmount also failed for %s: %v", dataset, forceErr)
 							}
@@ -1168,7 +1176,11 @@ func forceUnmountMountpoints(execute bool) error {
 					)
 					if err != nil {
 						if stderr != "" {
-							sysutil.Warn("Failed to force unmount %s: %s", mountpointFound, strings.TrimSpace(stderr))
+							sysutil.Warn(
+								"Failed to force unmount %s: %s",
+								mountpointFound,
+								strings.TrimSpace(stderr),
+							)
 						} else {
 							sysutil.Warn("Failed to force unmount %s: %v", mountpointFound, err)
 						}

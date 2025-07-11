@@ -15,8 +15,8 @@
 *.out
 
 # Dependency directories (remove the comment below to include it)
-!vendor/
-!vendor/**
+!src/vendor/
+!src/vendor/**
 
 # Go workspace file
 go.work
@@ -27,6 +27,7 @@ go.list
 
 # env file
 .env
+
 # Devenv
 .devenv*
 devenv.local.nix
@@ -44,5 +45,5 @@ devenv.local.nix
 result
 
 # Ignore the binary and log.
-nixos-installer
-nixos-installer.log
+src/nixos-installer
+src/nixos-installer.log

@@ -4,10 +4,10 @@ Installs NixOS using ZFS in an opinionated way.
 
 ## Background
 
-This installs NixOS;
+This installs NixOS from a configuration file;
 
 - Using a dedicated UEFI drive.
-- Uses entire disk or disks for ZFS as the root filesystem with optional stripe or mirror.
+- Uses entire disk or disks for ZFS as the root filesystem with optional stripe, mirror or raidz.
 - Configures common mount paths as ZFS datasets
 - Configures the system to use the specified flake
 
@@ -20,13 +20,13 @@ This installs NixOS;
 3. Define your configuration file.
 
 ```bash
-# Option 1: Use a predefined config from GitHub (configs/HYPERVISOR-1.yaml)
+# Option 1: Use a predefined config file direct from GitHub (example configs/HYPERVISOR-1.yaml)
 export CONFIG_FILE="HYPERVISOR-1"
 
 # Option 2: Use a local config file (e.g. /tmp/config.yaml)
 export CONFIG_FILE="/tmp/config.yaml"
 
-# Edit the file to meet your needs.
+# If you need a starter example..
 cp configs/example.yaml "${CONFIG_FILE}"
 vim "${CONFIG_FILE}"
 ```

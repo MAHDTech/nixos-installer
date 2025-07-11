@@ -1,22 +1,12 @@
 ---
-name: Devenv
+name: Devenv Update
 
 # prettier-ignore
 on:  # yamllint disable-line rule:truthy
-  push:
-    branches:
-      - trunk
+  schedule:
+    - cron: "0 0 * * 0"
 
-  pull_request:
-    branches:
-      - "trunk"
-    paths:
-      - .github/workflows/devenv.yaml
-      - devenv.nix
-      - devenv.yaml
-      - devenv.lock
-      - devenv/**
-      - src/**
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -77,6 +67,7 @@ jobs:
       - id: cachix
         name: "Enable Cachix ❄️"
         uses: cachix/cachix-action@v16
+        if: ${{ vars.CACHIX_CACHE_NAME != '' }}
         with:
           name: ${{ vars.CACHIX_CACHE_NAME }}
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
@@ -88,17 +79,25 @@ jobs:
         run: |
           nix profile install nixpkgs#devenv
 
-      - id: devenv_info
-        name: Devenv info
+      - id: devenv_update
+        name: Devenv update
         run: |
-          devenv info
+          devenv update
 
-      - id: devenv_gc
-        name: Devenv gc
-        run: |
-          devenv gc
-
-      - id: devenv_test
-        name: Devenv test
-        run: |
-          devenv test
+      - id: create_pull_request
+        name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7-rc
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: Update devenv.lock"
+          title: "chore: Update devenv.lock"
+          body: "This PR updates the devenv input dependencies"
+          branch: "chore/update-devenv-lock"
+          base: ${{ env.BRANCH_NAME_DEFAULT }}
+          labels: "dependencies"
+          assignees: "MAHDTech"
+          reviewers: "MAHDTech"
+          draft: false
+          signoff: true
+          delete-branch: true
+          sign-commits: true

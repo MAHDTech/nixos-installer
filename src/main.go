@@ -16,14 +16,30 @@ func main() {
 	// Parse command line flags
 	var (
 		// Installer flags
-		configFile     = flag.String("config", "config.yaml", "Path to the YAML configuration file")
-		execute        = flag.Bool("run", false, "Execute mode (defaults to false which will run in dry-run mode)")
-		executeInstall = flag.Bool("install", false, "Enable to automatically install NixOS (defaults to false which only generates the NixOS configuration)")
+		configFile = flag.String("config", "config.yaml", "Path to the YAML configuration file")
+		execute    = flag.Bool(
+			"run",
+			false,
+			"Execute mode (defaults to false which will run in dry-run mode)",
+		)
+		executeInstall = flag.Bool(
+			"install",
+			false,
+			"Enable to automatically install NixOS (defaults to false which only generates the NixOS configuration)",
+		)
 
 		// Logging flags
 		logFile      = flag.String("log-file", "nixos-installer.log", "Path to log file")
-		consoleLevel = flag.String("console-level", "WARN", "Console log level (DEBUG, INFO, WARN, ERROR)")
-		fileLevel    = flag.String("file-level", "DEBUG", "File log level (DEBUG, INFO, WARN, ERROR)")
+		consoleLevel = flag.String(
+			"console-level",
+			"WARN",
+			"Console log level (DEBUG, INFO, WARN, ERROR)",
+		)
+		fileLevel = flag.String(
+			"file-level",
+			"DEBUG",
+			"File log level (DEBUG, INFO, WARN, ERROR)",
+		)
 
 		// Help flag
 		showHelp = flag.Bool("help", false, "Show help message")

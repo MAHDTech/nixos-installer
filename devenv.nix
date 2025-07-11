@@ -14,7 +14,7 @@ let
 
   # Installed unstable packages.
   unstablePackages = with pkgsUnstable; [
-    golangci-lint
+    #golangci-lint
   ];
 
   # Common stable packages.
@@ -27,8 +27,8 @@ let
   devPackages = with pkgs; [
     git
     go-tools
-    #golangci-lint
-    nix
+    golangci-lint
+    gomod2nix
   ];
 
 in
@@ -75,15 +75,21 @@ in
     echo "#########################"
   '';
 
-  languages.go.enable = true;
-  languages.nix.enable = true;
+  languages = {
+    go = {
+      enable = true;
+    };
+    nix = {
+      enable = true;
+    };
+  };
 
   git-hooks = {
     excludes = [
       ".cache"
       ".devenv"
       ".direnv"
-      "vendor"
+      "src/vendor"
     ];
     hooks = {
       actionlint.enable = true;
@@ -95,10 +101,16 @@ in
       commitizen.enable = true;
       convco.enable = true;
       gofmt.enable = true;
-      golangci-lint.enable = true;
+      golangci-lint = {
+        enable = true;
+        pass_filenames = false;
+      };
       golines.enable = true;
       gotest.enable = true;
-      govet.enable = true;
+      govet = {
+        enable = true;
+        pass_filenames = false;
+      };
       gptcommit.enable = true;
       mixed-line-endings.enable = true;
       nixfmt-rfc-style.enable = true;
@@ -122,4 +134,15 @@ in
     echo "Running tests"
     git --version | grep --color=auto "${pkgs.git.version}"
   '';
+
+  outputs =
+    let
+      name = "nixos-installer";
+      version = "1.0.0";
+    in
+    {
+      app = import ./devenv/nixos-installer.nix {
+        inherit pkgs name version;
+      };
+    };
 }

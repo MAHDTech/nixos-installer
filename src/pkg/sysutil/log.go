@@ -1,6 +1,5 @@
 // Package sysutil provides utility functions for system operations.
 // This file contains the logging functionality for the sysutil package.
-
 package sysutil
 
 import (
@@ -16,6 +15,7 @@ import (
 // LogLevel represents the severity level of a log message
 type LogLevel int
 
+// Log Levels.
 const (
 	DEBUG LogLevel = iota
 	INFO
@@ -145,25 +145,28 @@ func (l *Logger) Error(format string, args ...interface{}) {
 	l.log(ERROR, format, args...)
 }
 
-// Global convenience functions
+// Debug global convenience function
 func Debug(format string, args ...interface{}) {
 	if globalLogger != nil {
 		globalLogger.Debug(format, args...)
 	}
 }
 
+// Info global convenience function
 func Info(format string, args ...interface{}) {
 	if globalLogger != nil {
 		globalLogger.Info(format, args...)
 	}
 }
 
+// Warn global convenience function
 func Warn(format string, args ...interface{}) {
 	if globalLogger != nil {
 		globalLogger.Warn(format, args...)
 	}
 }
 
+// Error global convenience function
 func Error(format string, args ...interface{}) {
 	if globalLogger != nil {
 		globalLogger.Error(format, args...)

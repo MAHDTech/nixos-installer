@@ -108,7 +108,13 @@ func Execute(
 
 		// Wait for command to complete
 		if err := cmd.Wait(); err != nil {
-			return string(stderrBytes), fmt.Errorf("failed to execute command %s: %w", cmd.String(), err)
+			return string(
+					stderrBytes,
+				), fmt.Errorf(
+					"failed to execute command %s: %w",
+					cmd.String(),
+					err,
+				)
 		}
 
 		return string(stderrBytes), nil
