@@ -35,6 +35,12 @@ func GetMountpoints(deviceID string, data []byte) ([]string, error) {
 		normalizedDeviceID = strings.TrimPrefix(deviceID, "/dev/disk/by-id/")
 	}
 
+	// Also remove common prefixes that lsblk might not include
+	normalizedDeviceID = strings.TrimPrefix(normalizedDeviceID, "usb-")
+	normalizedDeviceID = strings.TrimPrefix(normalizedDeviceID, "nvme-")
+
+	Debug("Looking for device ID: %s (normalized: %s)", deviceID, normalizedDeviceID)
+
 	// Find the device with the matching ID
 	var deviceIDFromJSON string
 	for _, device := range blockDevices.Blockdevices {
@@ -46,10 +52,16 @@ func GetMountpoints(deviceID string, data []byte) ([]string, error) {
 		// Normalize the device ID from JSON for comparison
 		normalizedJSONID := strings.TrimSpace(device.ID)
 
+		// Remove common prefixes from JSON ID for comparison
+		normalizedJSONID = strings.TrimPrefix(normalizedJSONID, "usb-")
+		normalizedJSONID = strings.TrimPrefix(normalizedJSONID, "nvme-")
+
+		Debug("Comparing with JSON device ID: %s (normalized: %s)", device.ID, normalizedJSONID)
+
 		// Check for exact match or if the normalized device ID contains the JSON ID
 		if normalizedJSONID == normalizedDeviceID || strings.Contains(normalizedJSONID, normalizedDeviceID) {
 			deviceIDFromJSON = device.ID
-			Debug("Checking device ID %s for mountpoints", deviceIDFromJSON)
+			Debug("Found matching device ID %s for mountpoints", deviceIDFromJSON)
 			if device.Mountpoints != nil {
 				for _, mountpoint := range device.Mountpoints {
 					if mountpoint != "" {
