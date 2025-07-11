@@ -97,7 +97,7 @@ type Config struct {
 	*/
 	Swap struct {
 		Enabled bool   `yaml:"enabled" default:"false"`
-		Size    string `yaml:"size" validate:"required"`
+		Size    string `yaml:"size" default:"0"`
 	} `yaml:"swap" validate:"required"`
 }
 
