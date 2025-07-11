@@ -31,6 +31,7 @@ func mountFileSystems(
 	zfsDatasetPathDocker := path.Join(zfsPoolName, zfsDatasetDocker)
 	zfsDatasetPathContainers := path.Join(zfsPoolName, zfsDatasetContainers)
 	zfsDatasetPathIncus := path.Join(zfsPoolName, zfsDatasetIncus)
+	zfsDatasetPathIncusStoragePools := path.Join(zfsPoolName, zfsDatasetIncusStoragePools)
 	zfsDatasetPathTmp := path.Join(zfsPoolName, zfsDatasetTmp)
 
 	// 1. Mount the root dataset to the configured altroot

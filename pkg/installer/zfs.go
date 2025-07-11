@@ -685,5 +685,26 @@ func createContainerDatasets(execute bool, zfsPoolName string) error {
 		)
 	}
 
+	// --- Var/Lib/Incus/Storage-Pools Dataset ---
+	zfsDatasetPathIncusStoragePools := path.Join(zfsPoolName, zfsDatasetIncusStoragePools)
+	log.Printf("Creating ZFS dataset: %s\n", zfsDatasetPathIncusStoragePools)
+	_, err = sysutil.Execute(
+		execute,
+		sysutil.ModeNormal,
+		"zfs",
+		"create",
+		"-o", "canmount=on",
+		"-o", "mountpoint=/var/lib/incus/storage-pools",
+		"-o", "com.sun:auto-snapshot=false",
+		zfsDatasetPathIncusStoragePools,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to create incus storage pools ZFS dataset %s: %w",
+			zfsDatasetPathIncusStoragePools,
+			err,
+		)
+	}
+
 	return nil
 }
