@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -110,14 +109,14 @@ func ReadConfig(configFile string) (*Config, error) {
 
 	// Determine if this is a config name or file path
 	if isConfigName(configFile) {
-		log.Printf("Detected config name '%s', fetching from GitHub...", configFile)
+		sysutil.Info("Detected config name '%s', fetching from GitHub...", configFile)
 		yamlFile, err = fetchConfigFromGitHub(configFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch config '%s' from GitHub: %w", configFile, err)
 		}
 	} else {
 		// Original file path logic
-		log.Printf("Detected file path '%s', reading local file...", configFile)
+		sysutil.Info("Detected file path '%s', reading local file...", configFile)
 		yamlFile, err = readLocalConfigFile(configFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read local config file: %w", err)
@@ -163,21 +162,21 @@ func applyDefaults(config *Config) {
 	// ZFS ashift
 	if config.ZFS.Ashift == 0 {
 		config.ZFS.Ashift = 12
-		log.Printf("Warning: ZFS ashift value not specified, defaulting to 12 (4K sectors)")
+		sysutil.Warn("ZFS ashift value not specified, defaulting to 12 (4K sectors)")
 	} else {
-		log.Printf("Using ZFS ashift value: %d", config.ZFS.Ashift)
+		sysutil.Info("Using ZFS ashift value: %d", config.ZFS.Ashift)
 	}
 
 	// ZFS pool type
 	if config.ZFS.Pool.Type == "" {
 		config.ZFS.Pool.Type = "single"
-		log.Printf("Warning: ZFS pool type not specified, defaulting to 'single'")
+		sysutil.Warn("ZFS pool type not specified, defaulting to 'single'")
 	}
 
 	// ZFS pool size
 	if config.ZFS.Pool.Size == "" {
 		config.ZFS.Pool.Size = "0"
-		log.Printf("Warning: ZFS pool size not specified, defaulting to auto-size (0)")
+		sysutil.Warn("ZFS pool size not specified, defaulting to auto-size (0)")
 	}
 }
 
@@ -361,9 +360,9 @@ func fetchConfigFromGitHub(configName string) ([]byte, error) {
 		configName,
 	)
 
-	log.Printf("Using GitHub repository: %s", GitHubRepo)
-	log.Printf("Using Git ref: %s", GitRef)
-	log.Printf("Fetching config from: %s", rawURL)
+	sysutil.Info("Using GitHub repository: %s", GitHubRepo)
+	sysutil.Info("Using Git ref: %s", GitRef)
+	sysutil.Info("Fetching config from: %s", rawURL)
 
 	// Validate the URL to mitigate security issues
 	parsedURL, err := url.Parse(rawURL)
@@ -391,7 +390,7 @@ func fetchConfigFromGitHub(configName string) ([]byte, error) {
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			log.Printf("Warning: failed to close response body: %v", closeErr)
+			sysutil.Warn("Failed to close response body: %v", closeErr)
 		}
 	}()
 
