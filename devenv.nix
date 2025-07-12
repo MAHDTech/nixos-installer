@@ -46,6 +46,7 @@ let
     go-tools
     golangci-lint
     gomod2nix
+    tree
     trivy
   ];
 

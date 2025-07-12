@@ -122,9 +122,11 @@ jobs:
         shell: devenv shell --quiet bash -- -e {0}
         env:
           REPO_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}
+          ARTIFACT_PATH: ${{ steps.build_artifact.outputs.ARTIFACT_PATH }}
           ARTIFACT_NAME: ${{ steps.build_artifact.outputs.ARTIFACT_NAME }}
         run: |
           mkdir -p artifacts
+          tree -L 2 "${ARTIFACT_PATH}"
           cp "${ARTIFACT_NAME}" "artifacts/${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
 
       - id: upload_artifact
