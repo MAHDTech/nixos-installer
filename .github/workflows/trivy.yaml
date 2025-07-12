@@ -19,14 +19,9 @@ on:  # yamllint disable-line rule:truthy
   schedule:
     - cron: "0 0 * * *"
   pull_request:
-    branches:
-      - "main"
-      - "master"
-      - "trunk"
-    paths-ignore:
-      - "docs/**"
-      - "*.md"
-      - "**/*.md"
+    paths:
+      - .github/workflows/trivy.yaml
+      - src/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -48,6 +43,10 @@ env:
 
   # Nix
   NIXPKGS_ALLOW_UNFREE: 1
+
+  # Go
+  GO111MODULE: on # yamllint disable-line rule:truthy
+  GOHOME: ${{ github.workspace }}/src
 
 defaults:
   run:

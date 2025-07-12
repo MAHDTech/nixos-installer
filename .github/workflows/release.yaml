@@ -38,11 +38,9 @@ env:
   BRANCH_NAME_CURRENT: ${{ github.head_ref || github.ref_name }}
   BRANCH_NAME_DEFAULT: ${{ github.event.repository.default_branch }}
 
-  # prettier-ignore
-  GO111MODULE: on  # yamllint disable-line rule:truthy
-
-  # The root of the Go project.
-  GOHOME: src
+  # Go
+  GO111MODULE: on # yamllint disable-line rule:truthy
+  GOHOME: ${{ github.workspace }}/src
 
 defaults:
   run:
@@ -53,7 +51,7 @@ jobs:
   # Build
   #########################################################
   build:
-    name: Build
+    name: Build (${{ matrix.os }}, ${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
 
     timeout-minutes: 30
@@ -62,8 +60,12 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
+        arch:
+          - amd64
+          - arm64
         os:
           - ubuntu-latest
+          - macos-latest
 
     steps:
       - id: checkout_repository
@@ -95,18 +97,34 @@ jobs:
         run: |
           nix profile install nixpkgs#devenv
 
-      - id: build_artifacts
-        name: Build Artifacts
+      - id: build_artifact
+        name: Build Artifact (${{ matrix.os }}, ${{ matrix.arch }})
         shell: devenv shell --quiet bash -- -e {0}
         run: |
-          devenv build outputs.nixos-installer
+          case "${{ matrix.os }}" in
+            "macos-latest") OS_SHORTNAME="macos" ;;
+            "ubuntu-latest") OS_SHORTNAME="linux" ;;
+            *) echo "❌ Unknown OS: ${{ matrix.os }}" ; exit 1 ;;
+          esac
+          ARTIFACT_PATH="$(devenv build outputs.nixos-installer-${OS_SHORTNAME}-${{ matrix.arch }})"
+          ARTIFACT_NAME="${ARTIFACT_PATH}/bin/${{ env.PROJECT }}"
+          echo "ARTIFACT_NAME=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
+          echo "✅ Built artifact: ${ARTIFACT_NAME}"
 
       - id: copy_artifacts
         name: Copy Build Artifacts
         shell: devenv shell --quiet bash -- -e {0}
+        env:
+          ARTIFACT_NAME: ${{ steps.build_artifact.outputs.ARTIFACT_NAME }}
         run: |
+          case "${{ matrix.os }}" in
+            "macos-latest") OS_SHORTNAME="macos" ;;
+            "ubuntu-latest") OS_SHORTNAME="linux" ;;
+            *) echo "❌ Unknown OS: ${{ matrix.os }}" ; exit 1 ;;
+          esac
           mkdir -p artifacts
-          # TODO: move binaries into artifacts
+          cp "${ARTIFACT_NAME}" "artifacts/${{ env.PROJECT }}-${OS_SHORTNAME}-${{ matrix.arch }}"
+          ls -lah artifacts
 
       - id: upload_artifacts
         name: Upload Build Artifacts
@@ -247,6 +265,8 @@ jobs:
       - id: create_release
         name: Create GitHub release
         uses: actions/github-script@v7
+        # TODO: REMOVE THIS ONCE WE HAVE A RELEASE WORKFLOW WORKING.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/trunk'
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

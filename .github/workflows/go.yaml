@@ -24,16 +24,14 @@ permissions:
   statuses: read
 
 env:
+  # GitHub
   PROJECT: ${{ github.repository }}
-
   BRANCH_NAME_CURRENT: ${{ github.head_ref || github.ref_name }}
   BRANCH_NAME_DEFAULT: ${{ github.event.repository.default_branch }}
 
-  # prettier-ignore
-  GO111MODULE: on  # yamllint disable-line rule:truthy
-
-  # The root of the Go project.
-  GOHOME: src
+  # Go
+  GO111MODULE: on # yamllint disable-line rule:truthy
+  GOHOME: ${{ github.workspace }}/src
 
 defaults:
   run:
@@ -53,12 +51,12 @@ jobs:
     continue-on-error: false
 
     strategy:
-      fail-fast: true
+      fail-fast: false # Run all matrix jobs, even if some fail.
       matrix:
         go-version:
+          - "1.22"
           - "1.23"
           - "1.24"
-          - "1.25"
         go-os:
           - "linux"
         go-arch:
