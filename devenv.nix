@@ -149,12 +149,11 @@ in
           configPath = ".linters/config/.yamllint.yml";
         };
       };
-      # Custom hook to generate the gomod2nix.toml file.
-      gomod2nix-generate = {
+      go-be-lazy = {
         enable = true;
-        name = "gomod2nix-generate";
-        entry = "gomod2nix-generate";
-        files = "^src/vendor/.*\\.*$";
+        name = "go-be-lazy";
+        entry = "go-be-lazy";
+        files = "^src/.*\\.*$";
         pass_filenames = false;
       };
     };
@@ -168,6 +167,21 @@ in
   '';
 
   scripts = {
+
+    go-be-lazy = {
+      package = pkgs.bash;
+      description = "Runs all the go commands I frequently forget";
+      exec = ''
+        pushd src > /dev/null
+        go get -u ./... || { echo "Failed to run go get -u ./...!" ; exit 1; }
+        go mod tidy || { echo "Failed to run go mod tidy!" ; exit 1; }
+        go mod verify || { echo "Failed to run go mod verify!" ; exit 1; }
+        go mod vendor || { echo "Failed to run go mod vendor!" ; exit 1; }
+        popd > /dev/null
+        gomod2nix-generate || { echo "Failed to run gomod2nix-generate!" ; exit 1; }
+      '';
+    };
+
     gomod2nix-generate = {
       package = pkgs.bash;
       description = "Generate the gomod2nix.toml file";

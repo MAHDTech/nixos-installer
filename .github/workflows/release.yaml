@@ -11,14 +11,6 @@ on:  # yamllint disable-line rule:truthy
   push:
     branches:
       - trunk
-  # TODO: Remove this once the release workflow is working.
-  # TODO: Remove this once the release workflow is working.
-  # TODO: Remove this once the release workflow is working.
-  # TODO: Remove this once the release workflow is working.
-  # TODO: Remove this once the release workflow is working.
-  pull_request:
-    branches:
-      - "trunk"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
