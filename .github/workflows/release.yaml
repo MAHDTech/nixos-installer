@@ -180,12 +180,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        goarch:
-          - amd64
-          - arm64
-        goos:
-          - linux
-          - darwin
         os:
           - ubuntu-latest
 
@@ -300,17 +294,15 @@ jobs:
           pattern: ${{ env.REPO_NAME }}-*
           merge-multiple: true
 
-      - id: generate_checksum
-        name: Generate Checksum (${{ matrix.goos }}-${{ matrix.goarch }})
+      - id: generate_checksums
+        name: Generate Checksums
         shell: devenv shell --quiet bash -- -e {0}
         env:
           REPO_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}
-          ARTIFACT_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
         run: |
           cd artifacts
-          tree -L 2 .
-          sha256sum ${{ env.ARTIFACT_NAME }} >> checksums.txt
-          tree -L 2 .
+          sha256sum ${{ env.REPO_NAME }}-* > checksums.txt
+          ls -lah
 
       - id: create_release
         name: Create GitHub release
