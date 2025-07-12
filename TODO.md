@@ -4,18 +4,27 @@ Ok, here is the current TODO list were working on.
 
 ## Release Process
 
-The release process will be as follows;
+The release process will following these specifications:
 
-- Each time a PR is merged into trunk, a new release will be created if the criteria is met.
-- Each release will have a git tag based on semantic versioning.
-- If an existing tag with the same version exists, no release is made.
-- The semantic version will need to be updated in the devenv.nix file
-- A pre-commit hook should check the current semantic version defined vs the last commit on trunk
-- The pre-commit hook should fail is the version was not updated by the user.
-- Determine how to read the version from devenv.nix
-  - Perhaps use this to obtain it.
+- On PRs
+
+  - Go build and test will run
+  - devenv build and test will run
+
+- On merges into trunk
+
+  - The latest git tag is obtained
+  - The version number is captured from the devenv.nix
+  - If a tag for the versions already exists, no action is taken
+  - If no tag exists matching the version a new tag is created
+  - If a tag is created an output is set to trigger release
+  - When a release is created, release notes are generated using githubs built in release notes
+  - the go binaries arechyecksummed and checksums.txt uploaded into the rele3ase using gh cli
+  - the go binaries are uploaded into therelease using the gh cli
+
+- The version can be obtained as follows from devenv.nix
   - devenv build outputs.nixos-installer
-  - /nix/store/y0pydyq2xidar665bww3i3883g958nxp-nixos-installer-1.0.0
+    - /nix/store/y0pydyq2xidar665bww3i3883g958nxp-nixos-installer-1.0.0
   - APP_PATH=$(devenv build outputs.nixos-installer)
   - APP_VER=$(echo $APP_PATH | cut -d "-" -f 4)
   - echo $APP_VER
@@ -30,10 +39,5 @@ The release process will be as follows;
 ## Phase 2: Enhance Functionality
 
 - [x] Add multi-architecture builds (amd64, arm64) into devenv
-- [ ] Implement automatic releases on tag creation using semantic versioning
+- [ ] IMprove the CI with automatic releases on tag creation using semantic versioning from devenv.nix
 - [ ] Add checksum verification for downloads in the shell script, a checksums.txt file will need to be added into the release
-
-## Phase 3: Documentation & Testing
-
-- [x] Update all documentation with new workflow
-- [ ] Test all scenarios (local config, remote config, different architectures)

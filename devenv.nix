@@ -41,6 +41,7 @@ let
 
   # Development packages.
   devPackages = with pkgs; [
+    gh
     git
     go-tools
     golangci-lint

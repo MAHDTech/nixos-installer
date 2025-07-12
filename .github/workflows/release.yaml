@@ -1,0 +1,455 @@
+---
+##################################################
+# Name: Release
+# Description: Release the project on merges into trunk.
+##################################################
+
+name: Release
+
+# prettier-ignore
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - trunk
+  # TODO: Remove this once the release workflow is working.
+  # TODO: Remove this once the release workflow is working.
+  # TODO: Remove this once the release workflow is working.
+  # TODO: Remove this once the release workflow is working.
+  # TODO: Remove this once the release workflow is working.
+  pull_request:
+    branches:
+      - "trunk"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: read
+  pull-requests: read
+  statuses: read
+
+env:
+  NIXPKGS_ALLOW_UNFREE: 1
+
+  PROJECT: ${{ github.repository }}
+
+  BRANCH_NAME_CURRENT: ${{ github.head_ref || github.ref_name }}
+  BRANCH_NAME_DEFAULT: ${{ github.event.repository.default_branch }}
+
+  # prettier-ignore
+  GO111MODULE: on  # yamllint disable-line rule:truthy
+
+  # The root of the Go project.
+  GOHOME: src
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  #########################################################
+  # Build
+  #########################################################
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 30
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+      - id: checkout_repository
+        name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: none
+          fetch-depth: 0 # Fetch all history for tags
+
+      - id: install_nix
+        name: "Install Nix ❄️"
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          enable_kvm: true
+
+      - id: cachix
+        name: "Enable Cachix ❄️"
+        uses: cachix/cachix-action@v16
+        with:
+          name: ${{ vars.CACHIX_CACHE_NAME }}
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          useDaemon: true
+          skipPush: false
+
+      - id: devenv_install
+        name: Devenv install
+        run: |
+          nix profile install nixpkgs#devenv
+
+      - id: build_artifacts
+        name: Build Artifacts
+        shell: devenv shell --quiet bash -- -e {0}
+        run: |
+          devenv build outputs.nixos-installer
+
+      - id: copy_artifacts
+        name: Copy Build Artifacts
+        shell: devenv shell --quiet bash -- -e {0}
+        run: |
+          mkdir -p artifacts
+          # TODO: move binaries into artifacts
+
+      - id: upload_artifacts
+        name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          path: artifacts
+          name: ${{ env.PROJECT }}-*
+          if-no-files-found: error
+
+  #########################################################
+  # Release
+  #########################################################
+
+  release:
+    name: Release
+    runs-on: ${{ matrix.os }}
+
+    needs:
+      - build
+
+    timeout-minutes: 30
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+      - id: checkout_repository
+        name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: none
+          fetch-depth: 0 # Fetch all history for tags
+
+      - id: install_nix
+        name: "Install Nix ❄️"
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          enable_kvm: true
+
+      - id: cachix
+        name: "Enable Cachix ❄️"
+        uses: cachix/cachix-action@v16
+        with:
+          name: ${{ vars.CACHIX_CACHE_NAME }}
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          useDaemon: true
+          skipPush: false
+
+      - id: devenv_install
+        name: Devenv install
+        run: |
+          nix profile install nixpkgs#devenv
+
+      - id: get_tag
+        name: Get Git Tag
+        shell: devenv shell --quiet bash -- -e {0}
+        run: |
+          # Get the latest tag or default to v0.0.0
+          GIT_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)"
+          echo "GIT_TAG=${GIT_TAG}" >> "$GITHUB_OUTPUT"
+          echo "✅ Git tag: ${GIT_TAG}"
+
+      - id: get_version
+        name: Extract Project Version
+        shell: devenv shell --quiet bash -- -e {0}
+        run: |
+          APP_PATH="$(devenv build outputs.nixos-installer)"
+          APP_VER="$(echo $APP_PATH | cut -d "-" -f 4)"
+          echo "VERSION=$APP_VER" >> "$GITHUB_OUTPUT"
+          echo "✅ Project version: $APP_VER"
+
+      - id: check_version_bump
+        name: Check Version Bump
+        if: |
+          (steps.get_version.outputs.VERSION != steps.get_tag.outputs.GIT_TAG)
+        shell: devenv shell --quiet bash -- -e {0}
+        env:
+          GIT_TAG: ${{ steps.get_tag.outputs.GIT_TAG }}
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
+        run: |
+          echo "CREATE_TAG=true" >> "$GITHUB_OUTPUT"
+          echo "CREATE_RELEASE=true" >> "$GITHUB_OUTPUT"
+          echo "✅ A new release will be created as the version has been bumped from $GIT_TAG to $VERSION"
+
+      - id: create_tag
+        name: Create Git Tag
+        if: steps.check_version_bump.outputs.CREATE_TAG == 'true'
+        shell: devenv shell --quiet bash -- -e {0}
+        env:
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
+        run: |
+          echo "Checking if tag v${VERSION} already exists..."
+
+          if git rev-parse "refs/tags/v${VERSION}" >/dev/null 2>&1;
+          then
+            echo "❌ Tag v${VERSION} already exists!"
+            echo "This should not happen, review the workflow configuration and check for duplicate processing."
+            exit 1
+          else
+            echo "✅ Tag v${VERSION} does not exist, proceeding with tag creation."
+          fi
+
+          echo "Creating tag: v${VERSION}"
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create annotated tag
+          git tag -a "v${VERSION}" -m "Release ${VERSION}"
+
+          # Push tag
+          git push origin "v${VERSION}"
+
+          echo "TAG_CREATED=true" >> "$GITHUB_OUTPUT"
+          echo "✅ Successfully created and pushed tag: v${VERSION}"
+
+      - id: download_artifacts
+        name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: ${{ env.PROJECT }}-*
+
+      - id: generate_checksums
+        name: Generate Checksums
+        shell: devenv shell --quiet bash -- -e {0}
+        run: |
+          cd artifacts
+          sha256sum ${{ env.PROJECT }}-* > checksums.txt
+
+      - id: create_release
+        name: Create GitHub release
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const VERSION = '${{ steps.get_version.outputs.VERSION }}';
+
+            let releaseBody = '';
+
+            // Release body components
+            const versionBadge = '🚀 **Release**';
+
+            // Release details
+            const releaseDetails = [
+              '---',
+              '',
+              '### 📋 Release Details',
+              '',
+              `- **Version**: \`${VERSION}\``,
+              `- **Branch**: \`${{ github.ref_name }}\``,
+              '',
+              '<sub>*This release was automatically created by the release workflow.*</sub>'
+            ].join('\n');
+
+            // Create the release body combining all elements.
+            releaseBody = [
+              versionBadge,
+              '',
+              releaseDetails,
+              ''
+              ].join('\n').replace(/\n{3,}/g, '\n\n');
+
+            // Create the release
+            const { data: release } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: `v${VERSION}`,
+              name: `Release v${VERSION}`,
+              body: releaseBody,
+              draft: false,
+              prerelease: false,
+              generate_release_notes: true
+            });
+
+            console.log(`✅ Created release: ${release.html_url}`);
+            console.log(`   - Version: ${VERSION}`);
+            console.log(`   - Draft: false`);
+            console.log(`   - Prerelease: false`);
+
+            // Set outputs for downstream workflows
+            core.setOutput('release-id', release.id);
+            core.setOutput('release-url', release.html_url);
+            core.setOutput('release-tag', release.tag_name);
+            core.setOutput('release-name', release.name);
+
+            return {
+              id: release.id,
+              url: release.html_url,
+              tag: release.tag_name,
+              name: release.name
+            };
+
+      - id: upload_assets
+        name: Upload Release Assets
+        shell: devenv shell --quiet bash -- -e {0}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for FILE in artifacts/*/* artifacts/checksums.txt;
+          do
+            echo "Uploading $FILE to release v${{ steps.get_version.outputs.VERSION }}"
+            gh release upload \
+              "v${{ steps.get_version.outputs.VERSION }}" \
+              "$FILE" \
+              --clobber \
+              --repo "${{ github.repository }}" || {
+                echo "❌ Failed to upload $FILE to release v${{ steps.get_version.outputs.VERSION }}"
+                exit 1
+              }
+            echo "✅ Uploaded $FILE to release v${{ steps.get_version.outputs.VERSION }}"
+          done
+
+    outputs:
+      release-url: ${{ steps.create_release.outputs.release-url }}
+      release-id: ${{ steps.create_release.outputs.release-id }}
+      release-tag: ${{ steps.create_release.outputs.release-tag }}
+      release-name: ${{ steps.create_release.outputs.release-name }}
+
+  ##################################################
+  # Report Status
+  ##################################################
+
+  status:
+    name: Report Status
+
+    runs-on: ${{ matrix.os }}
+
+    needs:
+      - build
+      - release
+
+    if: always()
+
+    timeout-minutes: 10
+    continue-on-error: true
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+      - id: install_nix
+        name: "Install Nix ❄️"
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          enable_kvm: true
+
+      - id: cachix
+        name: "Enable Cachix ❄️"
+        uses: cachix/cachix-action@v16
+        with:
+          name: ${{ vars.CACHIX_CACHE_NAME }}
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          useDaemon: true
+          skipPush: false
+
+      - id: devenv_install
+        name: Devenv install
+        run: |
+          nix profile install nixpkgs#devenv
+
+      - id: determine_status
+        name: Determine overall status
+        shell: devenv shell --quiet bash -- -e {0}
+        run: |
+          echo "=== Workflow Status Summary ==="
+          echo "Build Job: ${{ needs.build.result }}"
+          echo "Release Job: ${{ needs.release.result }}"
+
+          # Determine build result
+          if [[ "${{ needs.build.result }}" == "success" ]];
+          then
+            BUILD_RESULT="success"
+            BUILD_DESCRIPTION="Successfully built project"
+          else
+            BUILD_RESULT="failure"
+            BUILD_DESCRIPTION="Failed to build project"
+          fi
+
+          # Determine release result
+          if [[ "${{ needs.release.result }}" == "success" ]];
+          then
+            RELEASE_RESULT="success"
+            RELEASE_DESCRIPTION="Successfully created release"
+          else
+            RELEASE_RESULT="failure"
+            DESCRIPTION="Failed to create GitHub release"
+
+            # Report outputs from release job.
+            RELEASE_URL="${{ needs.release.outputs.release-url || 'N/A' }}"
+            RELEASE_ID="${{ needs.release.outputs.release-id || 'N/A' }}"
+            RELEASE_TAG="${{ needs.release.outputs.release-tag || 'N/A' }}"
+            RELEASE_NAME="${{ needs.release.outputs.release-name || 'N/A' }}"
+          fi
+
+          # Determine overall result
+          if [[ "${{ needs.build.result }}" == "success" && "${{ needs.release.result }}" == "success" ]];
+          then
+            OVERALL_RESULT="success"
+            OVERALL_DESCRIPTION="Successfully built project and created release"
+          else
+            OVERALL_RESULT="failure"
+            OVERALL_DESCRIPTION="Failed to build project or create release"
+          fi
+
+          echo "=== Final Status ==="
+          echo "Overall Result: ${OVERALL_RESULT}"
+          echo "Overall Description: ${OVERALL_DESCRIPTION}"
+
+          echo "=== Set Outputs ==="
+          echo "OVERALL_RESULT=${OVERALL_RESULT}" >> "$GITHUB_OUTPUT"
+          echo "OVERALL_DESCRIPTION=${OVERALL_DESCRIPTION}" >> "$GITHUB_OUTPUT"
+
+      - id: report_status
+        name: Report status to GitHub
+        if: always()
+        shell: devenv shell --quiet bash -- -e {0}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RESULT="${{ steps.determine_status.outputs.OVERALL_RESULT || 'N/A' }}"
+          DESCRIPTION="${{ steps.determine_status.outputs.OVERALL_DESCRIPTION || 'N/A' }}"
+
+          gh api \
+            repos/${{ github.repository }}/statuses/${{ github.sha }} \
+            -f state="${RESULT}" \
+            -f context="${{ github.workflow }}" \
+            -f description="${DESCRIPTION}" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" || {
+              echo "❌ Failed to report status!"
+              exit 1
+            }
+
+          echo "✅ Successfully reported status: ${RESULT}"
