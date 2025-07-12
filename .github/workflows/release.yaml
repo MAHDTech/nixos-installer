@@ -151,7 +151,7 @@ jobs:
         uses: actions/upload-artifact@v4
         env:
           REPO_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}
-          ARTIFACT_NAME: ${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
+          ARTIFACT_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
         with:
           path: artifacts/${{ env.ARTIFACT_NAME }}
           name: ${{ env.ARTIFACT_NAME }}
