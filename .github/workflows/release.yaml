@@ -120,27 +120,30 @@ jobs:
         name: Copy Artifact (${{ steps.set_outputs.outputs.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }})
         shell: devenv shell --quiet bash -- -e {0}
         env:
-          REPO_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}
-          ARTIFACT_NAME: ${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
-          ARTIFACT_NAME_1: ${{ env.REPO_NAME }}
+          ARTIFACT_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
+          ARTIFACT_NAME_1: ${{ steps.set_outputs.outputs.REPO_NAME }}
           ARTIFACT_NAME_2: ${{ matrix.goos }}_${{ matrix.goarch }}
           ARTIFACT_PATH: ${{ steps.build_artifact.outputs.ARTIFACT_PATH }}
         run: |
-          mkdir -p artifacts
-          if [[ -f "${{ env.ARTIFACT_PATH }}/bin/${{ env.ARTIFACT_NAME_1 }}" ]];
+          ARTIFACT_FILE_1="${{ env.ARTIFACT_PATH }}/bin/${{ env.ARTIFACT_NAME_1 }}"
+          ARTIFACT_FILE_2="${{ env.ARTIFACT_PATH }}/bin/${{ env.ARTIFACT_NAME_2 }}"
+
+          mkdir -p artifacts          
+
+          if [[ -f "${ARTIFACT_FILE_1}" ]];
           then
-            echo "✅ Found Artifact type 1: ${{ env.ARTIFACT_NAME_1 }}"
-            cp "${{ env.ARTIFACT_PATH }}/bin/${{ env.ARTIFACT_NAME_1 }}" "artifacts/${{ env.ARTIFACT_NAME }}"
-          elif [[ -f "${{ env.ARTIFACT_PATH }}/bin/${{ env.ARTIFACT_NAME_2 }}" ]];
+            echo "✅ Found Artifact type 1: ${ARTIFACT_FILE_1}"
+            cp "${ARTIFACT_FILE_1}" "artifacts/${{ env.ARTIFACT_NAME }}"
+          elif [[ -f "${ARTIFACT_FILE_2}" ]];
           then
-            echo "✅ Found Artifact type 2: ${{ env.ARTIFACT_NAME_2 }}"
-            cp "${{ env.ARTIFACT_PATH }}/bin/${{ env.ARTIFACT_NAME_2 }}" "artifacts/${{ env.ARTIFACT_NAME }}"
+            echo "✅ Found Artifact type 2: ${ARTIFACT_FILE_2}"
+            cp "${ARTIFACT_FILE_2}" "artifacts/${{ env.ARTIFACT_NAME }}"
           else
             echo "❌ No artifact match was found for type 1 or 2!"
-            echo "❌ Artifact type 1: ${{ env.ARTIFACT_NAME_1 }}"
-            echo "❌ Artifact type 2: ${{ env.ARTIFACT_NAME_2 }}"
-            echo "Displaying artifact path: ${{ env.ARTIFACT_PATH }}"
-            tree -L 2 "${{ env.ARTIFACT_PATH }}"
+            echo "❌ Artifact type 1: ${ARTIFACT_FILE_1}"
+            echo "❌ Artifact type 2: ${ARTIFACT_FILE_2}"
+            echo "Displaying artifact path: ${ARTIFACT_PATH}"
+            tree -L 2 "${ARTIFACT_PATH}"
             exit 1
           fi
 
