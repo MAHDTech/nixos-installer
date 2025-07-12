@@ -63,7 +63,7 @@ let
     in
     pkgs.buildGoApplication rec {
 
-      pname = "${name}_${version}_${platform.goos}-${platform.goarch}";
+      pname = "${name}-${version}-${platform.goos}-${platform.goarch}";
       inherit version;
 
       src = builtins.path {

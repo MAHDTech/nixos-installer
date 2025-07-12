@@ -58,7 +58,7 @@ jobs:
     continue-on-error: false
 
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         goarch:
           - amd64
@@ -126,18 +126,21 @@ jobs:
           ARTIFACT_NAME_2: ${{ matrix.goos }}_${{ matrix.goarch }}
           ARTIFACT_PATH: ${{ steps.build_artifact.outputs.ARTIFACT_PATH }}
         run: |
-          tree -L 2 "${ARTIFACT_PATH}"
           mkdir -p artifacts
-          if [[ -f "${ARTIFACT_PATH}/bin/${{ env.ARTIFACT_NAME_1 }}" ]];
+          if [[ -f "${{ env.ARTIFACT_PATH }}/bin/${{ env.ARTIFACT_NAME_1 }}" ]];
           then
             echo "✅ Found Artifact type 1: ${{ env.ARTIFACT_NAME_1 }}"
-            cp "${ARTIFACT_PATH}/bin/${{ env.ARTIFACT_NAME_1 }}" "artifacts/${{ env.ARTIFACT_NAME }}"
-          elif [[ -f "${ARTIFACT_PATH}/bin/${{ env.ARTIFACT_NAME_2 }}" ]];
+            cp "${{ env.ARTIFACT_PATH }}/bin/${{ env.ARTIFACT_NAME_1 }}" "artifacts/${{ env.ARTIFACT_NAME }}"
+          elif [[ -f "${{ env.ARTIFACT_PATH }}/bin/${{ env.ARTIFACT_NAME_2 }}" ]];
           then
             echo "✅ Found Artifact type 2: ${{ env.ARTIFACT_NAME_2 }}"
-            cp "${ARTIFACT_PATH}/bin/${{ env.ARTIFACT_NAME_2 }}" "artifacts/${{ env.ARTIFACT_NAME }}"
+            cp "${{ env.ARTIFACT_PATH }}/bin/${{ env.ARTIFACT_NAME_2 }}" "artifacts/${{ env.ARTIFACT_NAME }}"
           else
-            echo "❌ No artifact match was found!"
+            echo "❌ No artifact match was found for type 1 or 2!"
+            echo "❌ Artifact type 1: ${{ env.ARTIFACT_NAME_1 }}"
+            echo "❌ Artifact type 2: ${{ env.ARTIFACT_NAME_2 }}"
+            echo "Displaying artifact path: ${{ env.ARTIFACT_PATH }}"
+            tree -L 2 "${{ env.ARTIFACT_PATH }}"
             exit 1
           fi
 
