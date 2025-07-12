@@ -17,7 +17,7 @@ nixos:
 # Settings for the UEFI partition.
 uefi:
   # USB Flash Drive
-  disk: /dev/disk/by-id/
+  disk: /dev/disk/by-id/usb-Samsung_Flash_Drive_0347023040002297-0:0
   label: ESP
   size: 4GiB
 
@@ -32,31 +32,31 @@ zfs:
       # L2ARC
       cache:
         # M.2 SSD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-SPCC_M.2_SSD_AA000000000000000290
         # M.2 NVMe
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/nvme-Samsung_SSD_960_EVO_250GB_S3ESNX0J722763J
 
       # ZIL
       log:
         # SATA SSD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-Seagate_IronWolf_ZA1000NM10002-2ZG102_7TC005N5
         # SATA SSD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-TEAM_T2531TB_TPBF2312040090101155
         # SATA SSD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-TEAM_T2531TB_TPBF2312040090101159
         # SATA SSD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-TEAM_T2531TB_TPBF2312040090101173
 
       # Data
       data:
         # SATA HDD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-ST6000VN0041-2EL11C_ZA17SSLL
         # SATA HDD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-ST6000VN0041-2EL11C_ZA17V8H7
         # SATA HDD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-ST6000VN0041-2EL11C_ZA17XGVP
         # SATA HDD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-ST6000VN0041-2EL11C_ZA17Y13G
 
       # Hot Spares
       spare: []
@@ -64,4 +64,3 @@ zfs:
 # Settings for the swap partition.
 swap:
   enabled: false
-
