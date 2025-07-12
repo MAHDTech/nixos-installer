@@ -1,4 +1,4 @@
 # TODO
 
-- [ ] Stop the labelclear errros from priting to stderr/stdout, doesnt matter they fail
-
+- [ ] make zfs labelclear a DEBUG log level to ignore it
+- [ ] Stop the zpool import from printing to stderr/stdout
