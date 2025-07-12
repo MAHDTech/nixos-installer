@@ -7,6 +7,34 @@
 }:
 let
 
+  # Obtain the git commit hash using runCommand
+  gitCommit = pkgs.lib.removeSuffix "\n" (
+    pkgs.lib.readFile (
+      pkgs.runCommand "git-commit"
+        {
+          nativeBuildInputs = [ pkgs.git ];
+        }
+        ''
+          cd ${pkgs.lib.cleanSource ../.}
+          if [ -d .git ];
+          then
+            git rev-parse HEAD | cut -c1-8 > $out
+          else
+            echo "unknown" > $out
+          fi
+        ''
+    )
+  );
+
+  # Obtain the build date using runCommand
+  buildDate = pkgs.lib.removeSuffix "\n" (
+    pkgs.lib.readFile (
+      pkgs.runCommand "build-date" { } ''
+        date -u +%Y-%m-%dT%H:%M:%SZ > $out
+      ''
+    )
+  );
+
   # Supported platforms
   platforms = {
     "x86_64-linux" = {
@@ -47,6 +75,24 @@ let
       # pushd src ; gomod2nix generate ; popd
       modules = ../src/gomod2nix.toml;
 
+      preBuild = ''
+        export CGO_ENABLED=0
+        export GOOS=${platform.goos}
+        export GOARCH=${platform.goarch}
+      '';
+
+      nativeBuildInputs = with pkgs; [
+        git
+      ];
+
+      ldflags = [
+        "-s"
+        "-w"
+        "-X main.Version=${version}"
+        "-X main.CommitSHA=${gitCommit}"
+        "-X main.BuildDate=${buildDate}"
+      ];
+
     };
 
   # Build all platforms
@@ -58,10 +104,14 @@ in
 
   # Export each platform build separately
   inherit (allPlatforms)
-    aarch64-darwin
+    # Linux
     aarch64-linux
-    x86_64-darwin
     x86_64-linux
+
+    # macOS
+    aarch64-darwin
+    x86_64-darwin
+
     ;
 
   # Export the default for the current platform

@@ -19,8 +19,8 @@ The release process will following these specifications:
   - If no tag exists matching the version a new tag is created
   - If a tag is created an output is set to trigger release
   - When a release is created, release notes are generated using githubs built in release notes
-  - the go binaries arechyecksummed and checksums.txt uploaded into the rele3ase using gh cli
-  - the go binaries are uploaded into therelease using the gh cli
+  - the go binaries are checksummed and checksums.txt uploaded into the release using gh cli
+  - the go binaries are uploaded into the release using the gh cli
 
 - The version can be obtained as follows from devenv.nix
   - devenv build outputs.nixos-installer
@@ -35,9 +35,29 @@ The release process will following these specifications:
 - [x] Review and update the go ci workflow to have binary releases on merges into trunk
 - [x] Create install script for one-shot usage named scripts/yolo.sh
 - [x] Update README.md with new usage instructions and remove old.
+- [x] Add version flag support to the Go program
+- [x] Update devenv/nixos-installer.nix to properly cross-compile with GOOS/GOARCH
+- [x] Add build-time version injection via ldflags
 
 ## Phase 2: Enhance Functionality
 
 - [x] Add multi-architecture builds (amd64, arm64) into devenv
-- [ ] IMprove the CI with automatic releases on tag creation using semantic versioning from devenv.nix
+- [ ] Improve the CI with automatic releases on tag creation using semantic versioning from devenv.nix
 - [ ] Add checksum verification for downloads in the shell script, a checksums.txt file will need to be added into the release
+- [ ] Add pre-commit hook to check version bump requirements
+- [ ] Test the version flag functionality in CI
+- [ ] Add version information to the help output
+
+## Phase 3: Documentation & Testing
+
+- [x] Update all documentation with new workflow
+- [ ] Test all scenarios (local config, remote config, different architectures)
+- [ ] Add integration tests for version flag
+- [ ] Document the release process for maintainers
+
+## Phase 4: Security & Quality
+
+- [ ] Add security scanning (Trivy) to CI workflows
+- [ ] Add dependency vulnerability scanning
+- [ ] Implement proper error handling for version extraction
+- [ ] Add unit tests for version parsing logic

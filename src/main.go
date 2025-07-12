@@ -11,6 +11,13 @@ import (
 	sysutil "github.com/MAHDTech/nixos-installer/pkg/sysutil"
 )
 
+// Build-time variables injected by ldflags
+var (
+	Version   = "dev"
+	CommitSHA = "unknown"
+	BuildDate = "unknown"
+)
+
 // Run the NixOS Installer.
 func main() {
 	// Parse command line flags
@@ -41,10 +48,18 @@ func main() {
 			"File log level (DEBUG, INFO, WARN, ERROR)",
 		)
 
-		// Help flag
-		showHelp = flag.Bool("help", false, "Show help message")
+		// Help and version flags
+		showHelp    = flag.Bool("help", false, "Show help message")
+		showVersion = flag.Bool("version", false, "Show version information")
 	)
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("NixOS Installer v%s\n", Version)
+		fmt.Printf("Commit: %s\n", CommitSHA)
+		fmt.Printf("Built: %s\n", BuildDate)
+		return
+	}
 
 	if *showHelp {
 		fmt.Println("NixOS Installer - Automated NixOS installation with ZFS")
