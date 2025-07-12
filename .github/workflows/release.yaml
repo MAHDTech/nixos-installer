@@ -317,7 +317,7 @@ jobs:
             let releaseBody = '';
 
             // Release body components
-            const versionBadge = '🚀 **Release**';
+            const versionBadge = '🚀 **It\'s shipping time! :shipit:**';
 
             // Release details
             const releaseDetails = [
@@ -376,7 +376,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for FILE in artifacts/*/*;
+          while IFS= read -r -d '' FILE;
           do
             echo "Uploading $FILE to release v${{ steps.get_version.outputs.VERSION }}"
             gh release upload \
@@ -388,7 +388,7 @@ jobs:
                 exit 1
               }
             echo "✅ Uploaded $FILE to release v${{ steps.get_version.outputs.VERSION }}"
-          done
+          done < <(find artifacts -type f -print0)
 
     outputs:
       release-url: ${{ steps.create_release.outputs.release-url }}
