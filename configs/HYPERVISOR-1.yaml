@@ -64,4 +64,3 @@ zfs:
 # Settings for the swap partition.
 swap:
   enabled: false
-
