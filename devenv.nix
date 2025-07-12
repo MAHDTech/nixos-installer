@@ -45,6 +45,7 @@ let
     go-tools
     golangci-lint
     gomod2nix
+    trivy
   ];
 
 in
