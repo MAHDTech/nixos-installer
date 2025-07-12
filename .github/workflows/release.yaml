@@ -51,7 +51,7 @@ jobs:
   # Build
   #########################################################
   build:
-    name: Build (${{ matrix.os }}, ${{ matrix.arch }})
+    name: Build (${{ matrix.goos }}-${{ matrix.goarch }})
     runs-on: ${{ matrix.os }}
 
     timeout-minutes: 30
@@ -60,12 +60,14 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        arch:
+        goarch:
           - amd64
           - arm64
+        goos:
+          - linux
+          - darwin
         os:
           - ubuntu-latest
-          - macos-latest
 
     steps:
       - id: checkout_repository
@@ -98,40 +100,29 @@ jobs:
           nix profile install nixpkgs#devenv
 
       - id: build_artifact
-        name: Build Artifact (${{ matrix.os }}, ${{ matrix.arch }})
+        name: Build Artifact (${{ matrix.goos }}-${{ matrix.goarch }})
         shell: devenv shell --quiet bash -- -e {0}
         run: |
-          case "${{ matrix.os }}" in
-            "macos-latest") OS_SHORTNAME="macos" ;;
-            "ubuntu-latest") OS_SHORTNAME="linux" ;;
-            *) echo "❌ Unknown OS: ${{ matrix.os }}" ; exit 1 ;;
-          esac
-          ARTIFACT_PATH="$(devenv build outputs.nixos-installer-${OS_SHORTNAME}-${{ matrix.arch }})"
+          ARTIFACT_PATH="$(devenv build outputs.${{ env.PROJECT }}-${{ matrix.goos }}-${{ matrix.goarch }})"
           ARTIFACT_NAME="${ARTIFACT_PATH}/bin/${{ env.PROJECT }}"
           echo "ARTIFACT_NAME=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
           echo "✅ Built artifact: ${ARTIFACT_NAME}"
 
-      - id: copy_artifacts
-        name: Copy Build Artifacts
+      - id: copy_artifact
+        name: Copy Build Artifact (${{ matrix.goos }}-${{ matrix.goarch }})
         shell: devenv shell --quiet bash -- -e {0}
         env:
           ARTIFACT_NAME: ${{ steps.build_artifact.outputs.ARTIFACT_NAME }}
         run: |
-          case "${{ matrix.os }}" in
-            "macos-latest") OS_SHORTNAME="macos" ;;
-            "ubuntu-latest") OS_SHORTNAME="linux" ;;
-            *) echo "❌ Unknown OS: ${{ matrix.os }}" ; exit 1 ;;
-          esac
           mkdir -p artifacts
-          cp "${ARTIFACT_NAME}" "artifacts/${{ env.PROJECT }}-${OS_SHORTNAME}-${{ matrix.arch }}"
-          ls -lah artifacts
+          cp "${ARTIFACT_NAME}" "artifacts/${{ env.PROJECT }}-${{ matrix.goos }}-${{ matrix.goarch }}"
 
-      - id: upload_artifacts
-        name: Upload Build Artifacts
+      - id: upload_artifact
+        name: Upload Build Artifact (${{ matrix.goos }}-${{ matrix.goarch }})
         uses: actions/upload-artifact@v4
         with:
-          path: artifacts
-          name: ${{ env.PROJECT }}-*
+          path: artifacts/${{ env.PROJECT }}-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: ${{ env.PROJECT }}-${{ matrix.goos }}-${{ matrix.goarch }}
           if-no-files-found: error
 
   #########################################################

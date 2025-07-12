@@ -75,15 +75,23 @@ jobs:
           cd ${{ env.GOHOME }}
           if [ -f "go.sum" ];
           then
-            echo "run_nancy=TRUE" >> "$GITHUB_OUTPUT"
+
+            echo "🔍 go.sum file present, running Nancy."
+            echo "run_nancy=true" >> "$GITHUB_OUTPUT"
+
             go list -json -mod=mod -m all > go.list
+            jq . go.list
+
           else
-            echo "No go.sum file present, Nancy will not be run."
+
+            echo "🔍 No go.sum file present, skipping Nancy."
+            echo "run_nancy=false" >> "$GITHUB_OUTPUT"
+
           fi
 
       - id: run_nancy
         name: Run Nancy
-        if: ${{ steps.test_go_sum.outputs.run_nancy }}
+        if: ${{ steps.test_go_sum.outputs.run_nancy == 'true' }}
         uses: sonatype-nexus-community/nancy-github-action@main
         with:
           goListFile: ${{ env.GOHOME }}/go.list
