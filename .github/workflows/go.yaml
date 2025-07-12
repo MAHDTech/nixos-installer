@@ -127,13 +127,9 @@ jobs:
         env:
           GOOS: ${{ matrix.go-os }}
           GOARCH: ${{ matrix.go-arch }}
+          ARTIFACT_NAME: ${{ env.PROJECT }}-${{ matrix.go-version }}-${{ matrix.go-os }}-${{ matrix.go-arch }}
         run: |
           cd ${{ env.GOHOME }}
-          go build -v -o nixos-installer-${{ matrix.go-version }}-${{ matrix.go-os }}-${{ matrix.go-arch }} ./cmd/nixos-installer
-
-      - id: go_upload_artifacts
-        name: Go Upload Artifacts (${{ matrix.go-version }}, ${{ matrix.go-os }}, ${{ matrix.go-arch }})
-        uses: actions/upload-artifact@v4
-        with:
-          name: binary-${{ matrix.go-os }}-${{ matrix.go-arch }}
-          path: ${{ env.GOHOME }}/nixos-installer-${{ matrix.go-os }}-${{ matrix.go-arch }}
+          mkdir -p artifacts
+          go build -v -o artifacts/${{ env.ARTIFACT_NAME }}
+          echo "✅ Built artifact: ${{ env.ARTIFACT_NAME }}"

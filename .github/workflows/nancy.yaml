@@ -71,6 +71,8 @@ jobs:
       - id: test_go_sum
         name: Test for go.sum
         shell: bash
+        env:
+          NANCY_GO_LIST_FILE: ${{ github.workspace }}/go.list
         run: |
           cd ${{ env.GOHOME }}
           if [ -f "go.sum" ];
@@ -79,8 +81,9 @@ jobs:
             echo "🔍 go.sum file present, running Nancy."
             echo "run_nancy=true" >> "$GITHUB_OUTPUT"
 
-            go list -json -mod=mod -m all > go.list
-            jq . go.list
+            # Generate the go.list file in a location that nancy can read.
+            go list -json -mod=mod -m all > ${{ env.NANCY_GO_LIST_FILE }}
+            jq . ${{ env.NANCY_GO_LIST_FILE }}
 
           else
 
@@ -94,7 +97,7 @@ jobs:
         if: ${{ steps.test_go_sum.outputs.run_nancy == 'true' }}
         uses: sonatype-nexus-community/nancy-github-action@main
         with:
-          goListFile: ${{ env.GOHOME }}/go.list
+          goListFile: ${{ github.workspace }}/go.list
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           nancyVersion: latest
           nancyCommand: sleuth --loud
