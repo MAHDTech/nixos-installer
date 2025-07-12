@@ -121,21 +121,35 @@ jobs:
         shell: devenv shell --quiet bash -- -e {0}
         env:
           REPO_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}
-          ARTIFACT_PATH: ${{ steps.build_artifact.outputs.ARTIFACT_PATH }}
           ARTIFACT_NAME: ${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
+          ARTIFACT_NAME_1: ${{ env.REPO_NAME }}
+          ARTIFACT_NAME_2: ${{ matrix.goos }}_${{ matrix.goarch }}
+          ARTIFACT_PATH: ${{ steps.build_artifact.outputs.ARTIFACT_PATH }}
         run: |
           tree -L 2 "${ARTIFACT_PATH}"
           mkdir -p artifacts
-          cp "${ARTIFACT_PATH}/bin/${{ env.REPO_NAME }}" "artifacts/${{ env.ARTIFACT_NAME }}"
+          if [[ -f "${ARTIFACT_PATH}/bin/${{ env.ARTIFACT_NAME_1 }}" ]];
+          then
+            echo "✅ Found Artifact type 1: ${{ env.ARTIFACT_NAME_1 }}"
+            cp "${ARTIFACT_PATH}/bin/${{ env.ARTIFACT_NAME_1 }}" "artifacts/${{ env.ARTIFACT_NAME }}"
+          elif [[ -f "${ARTIFACT_PATH}/bin/${{ env.ARTIFACT_NAME_2 }}" ]];
+          then
+            echo "✅ Found Artifact type 2: ${{ env.ARTIFACT_NAME_2 }}"
+            cp "${ARTIFACT_PATH}/bin/${{ env.ARTIFACT_NAME_2 }}" "artifacts/${{ env.ARTIFACT_NAME }}"
+          else
+            echo "❌ No artifact match was found!"
+            exit 1
+          fi
 
       - id: upload_artifact
         name: Upload Build Artifact (${{ matrix.goos }}-${{ matrix.goarch }})
         uses: actions/upload-artifact@v4
         env:
           REPO_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}
+          ARTIFACT_NAME: ${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
         with:
-          path: artifacts/${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
-          name: ${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: artifacts/${{ env.ARTIFACT_NAME }}
+          name: ${{ env.ARTIFACT_NAME }}
           if-no-files-found: error
 
   #########################################################
