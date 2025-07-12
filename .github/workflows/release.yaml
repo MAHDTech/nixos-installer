@@ -178,8 +178,14 @@ jobs:
     continue-on-error: false
 
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
+        goarch:
+          - amd64
+          - arm64
+        goos:
+          - linux
+          - darwin
         os:
           - ubuntu-latest
 
@@ -292,21 +298,24 @@ jobs:
         with:
           path: artifacts
           pattern: ${{ env.REPO_NAME }}-*
+          merge-multiple: true
 
-      - id: generate_checksums
-        name: Generate Checksums
+      - id: generate_checksum
+        name: Generate Checksum (${{ matrix.goos }}-${{ matrix.goarch }})
         shell: devenv shell --quiet bash -- -e {0}
         env:
           REPO_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}
+          ARTIFACT_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
         run: |
           cd artifacts
-          sha256sum ${{ env.REPO_NAME }}-* > checksums.txt
+          tree -L 2 .
+          sha256sum ${{ env.ARTIFACT_NAME }} >> checksums.txt
+          tree -L 2 .
 
       - id: create_release
         name: Create GitHub release
-        # TODO: REMOVE THIS ONCE WE HAVE A RELEASE WORKFLOW WORKING.
-        if: github.event_name == 'push' && github.ref == 'refs/heads/trunk'
         uses: actions/github-script@v7
+        if: steps.create_tag.outputs.TAG_CREATED == 'true'
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -370,13 +379,12 @@ jobs:
 
       - id: upload_assets
         name: Upload Release Assets
-        # TODO: REMOVE THIS ONCE WE HAVE A RELEASE WORKFLOW WORKING.
-        if: github.event_name == 'push' && github.ref == 'refs/heads/trunk'
+        if: steps.create_tag.outputs.TAG_CREATED == 'true'
         shell: devenv shell --quiet bash -- -e {0}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for FILE in artifacts/*/* artifacts/checksums.txt;
+          for FILE in artifacts/*/*;
           do
             echo "Uploading $FILE to release v${{ steps.get_version.outputs.VERSION }}"
             gh release upload \
