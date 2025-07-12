@@ -218,6 +218,8 @@ jobs:
         run: |
           # Get the latest tag or default to v0.0.0
           GIT_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)"
+          # Strip the v from the tag for comparison.
+          GIT_TAG="${GIT_TAG#v}"
           echo "GIT_TAG=${GIT_TAG}" >> "$GITHUB_OUTPUT"
           echo "✅ Git tag: ${GIT_TAG}"
 
@@ -232,16 +234,21 @@ jobs:
 
       - id: check_version_bump
         name: Check Version Bump
-        if: |
-          (steps.get_version.outputs.VERSION != steps.get_tag.outputs.GIT_TAG)
         shell: devenv shell --quiet bash -- -e {0}
         env:
           GIT_TAG: ${{ steps.get_tag.outputs.GIT_TAG }}
           VERSION: ${{ steps.get_version.outputs.VERSION }}
         run: |
-          echo "CREATE_TAG=true" >> "$GITHUB_OUTPUT"
-          echo "CREATE_RELEASE=true" >> "$GITHUB_OUTPUT"
-          echo "✅ A new release will be created as the version has been bumped from $GIT_TAG to $VERSION"
+          if [[ "${{ env.GIT_TAG }}" != "${{ env.VERSION }}" ]];
+          then
+            echo "CREATE_TAG=true" >> "$GITHUB_OUTPUT"
+            echo "CREATE_RELEASE=true" >> "$GITHUB_OUTPUT"
+            echo "✅ A new release will be created as the version has been bumped from $GIT_TAG to $VERSION"
+          else
+            echo "CREATE_TAG=false" >> "$GITHUB_OUTPUT"
+            echo "CREATE_RELEASE=false" >> "$GITHUB_OUTPUT"
+            echo "✅ No version bump detected, skipping tag and release creation."
+          fi
 
       - id: create_tag
         name: Create Git Tag
@@ -251,7 +258,6 @@ jobs:
           VERSION: ${{ steps.get_version.outputs.VERSION }}
         run: |
           echo "Checking if tag v${VERSION} already exists..."
-
           if git rev-parse "refs/tags/v${VERSION}" >/dev/null 2>&1;
           then
             echo "❌ Tag v${VERSION} already exists!"
@@ -260,7 +266,6 @@ jobs:
           else
             echo "✅ Tag v${VERSION} does not exist, proceeding with tag creation."
           fi
-
           echo "Creating tag: v${VERSION}"
 
           # Configure git
@@ -299,7 +304,7 @@ jobs:
       - id: create_release
         name: Create GitHub release
         uses: actions/github-script@v7
-        if: steps.create_tag.outputs.TAG_CREATED == 'true'
+        if: steps.check_version_bump.outputs.CREATE_RELEASE == 'true'
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -363,7 +368,7 @@ jobs:
 
       - id: upload_assets
         name: Upload Release Assets
-        if: steps.create_tag.outputs.TAG_CREATED == 'true'
+        if: steps.check_version_bump.outputs.CREATE_RELEASE == 'true'
         shell: devenv shell --quiet bash -- -e {0}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
