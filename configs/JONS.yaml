@@ -26,12 +26,13 @@ zfs:
     name: zpool
     compression: true
     size: 0
-    type: single
+    type: stripe
     disks:
       cache: []
       log: []
       data:
-        - /dev/disk/by-id/nvme-Corsair_MP600_PRO_NH_A5JVB4273059HX
+        - /dev/disk/by-id/???
+        - /dev/disk/by-id/???
       spare: []
 
 # Settings for the swap partition.
