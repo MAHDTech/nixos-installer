@@ -17,7 +17,7 @@ nixos:
 # Settings for the UEFI partition.
 uefi:
   # USB Flash Drive
-  disk: /dev/disk/by-id/usb-Samsung_Flash_Drive_0372324070000895-0:0
+  disk: /dev/disk/by-id/
   label: ESP
   size: 4GiB
 
@@ -32,36 +32,36 @@ zfs:
       # L2ARC
       cache:
         # M.2 SSD
-        - /dev/disk/by-id/ata-ORICO_9JZ6FOMPEXCNQ51JEYR2
+        - /dev/disk/by-id/
         # M.2 NVMe
-        - /dev/disk/by-id/nvme-INTEL_SSDPEKKW010T8_BTHH91230KR51P0E
+        - /dev/disk/by-id/
 
       # ZIL
       log:
         # SATA SSD
-        - /dev/disk/by-id/ata-SPCC_Solid_State_Disk_AA240816S3102401329
+        - /dev/disk/by-id/
         # SATA SSD
-        - /dev/disk/by-id/ata-Seagate_IronWolf_ZA1000NM10002-2ZG102_7TC005N5
+        - /dev/disk/by-id/
         # SATA SSD
-        - /dev/disk/by-id/ata-TEAM_T2531TB_TPBF2312040090101159
+        - /dev/disk/by-id/
+        # SATA SSD
+        - /dev/disk/by-id/
 
       # Data
       data:
         # SATA HDD
-        - /dev/disk/by-id/ata-ST18000NE000-2YY101_ZR52EWSA
+        - /dev/disk/by-id/
         # SATA HDD
-        - /dev/disk/by-id/ata-ST18000NE000-2YY101_ZR548VPC
+        - /dev/disk/by-id/
         # SATA HDD
-        - /dev/disk/by-id/ata-ST18000NE000-2YY101_ZR54904J
+        - /dev/disk/by-id/
         # SATA HDD
-        - /dev/disk/by-id/ata-ST6000VN0041-2EL11C_ZA17XGVP
-        # SATA HDD
-        - /dev/disk/by-id/ata-TOSHIBA_MD04ACA500_5492K1PTFS9A
+        - /dev/disk/by-id/
 
       # Hot Spares
       spare: []
 
 # Settings for the swap partition.
 swap:
-  enabled: true
-  size: 69GiB
+  enabled: false
+

@@ -17,7 +17,7 @@ nixos:
 # Settings for the UEFI partition.
 uefi:
   # USB Flash Drive
-  disk: /dev/disk/by-id/usb-Samsung_Flash_Drive_0372324070000895-0:0
+  disk: /dev/disk/by-id/usb-Samsung_Flash_Drive_0373623100000896-0:0
   label: ESP
   size: 4GiB
 
@@ -39,29 +39,29 @@ zfs:
       # ZIL
       log:
         # SATA SSD
+        - /dev/disk/by-id/ata-Samsung_SSD_870_EVO_1TB_S74ZNX0Y344304V
+        # SATA SSD
+        - /dev/disk/by-id/ata-Samsung_SSD_870_EVO_1TB_S74ZNX0Y344309A
+        # SATA SSD
         - /dev/disk/by-id/ata-SPCC_Solid_State_Disk_AA240816S3102401329
         # SATA SSD
-        - /dev/disk/by-id/ata-Seagate_IronWolf_ZA1000NM10002-2ZG102_7TC005N5
-        # SATA SSD
-        - /dev/disk/by-id/ata-TEAM_T2531TB_TPBF2312040090101159
+        - /dev/disk/by-id/ata-SPCC_Solid_State_Disk_00000000000000000001
 
       # Data
       data:
+        # SATA HDD
+        - /dev/disk/by-id/ata-ST18000NE000-2YY101_ZR519CKW
         # SATA HDD
         - /dev/disk/by-id/ata-ST18000NE000-2YY101_ZR52EWSA
         # SATA HDD
         - /dev/disk/by-id/ata-ST18000NE000-2YY101_ZR548VPC
         # SATA HDD
         - /dev/disk/by-id/ata-ST18000NE000-2YY101_ZR54904J
-        # SATA HDD
-        - /dev/disk/by-id/ata-ST6000VN0041-2EL11C_ZA17XGVP
-        # SATA HDD
-        - /dev/disk/by-id/ata-TOSHIBA_MD04ACA500_5492K1PTFS9A
 
       # Hot Spares
       spare: []
 
 # Settings for the swap partition.
 swap:
-  enabled: true
-  size: 69GiB
+  enabled: false
+
