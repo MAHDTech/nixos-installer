@@ -1,68 +1,72 @@
 ---
+##################################################
+# Name: Go
+# Description: Workflow to build and test on PRs.
+##################################################
+
 name: Go
 
 # prettier-ignore
 on:  # yamllint disable-line rule:truthy
-  push:
-    branches:
-      - trunk
-
   pull_request:
-    branches:
-      - "trunk"
     paths:
-      - "*.go"
-      - go.mod
-      - go.sum
+      - .github/workflows/go.yaml
+      - src/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
   packages: read
-  pull-requests: write
+  pull-requests: read
   statuses: read
 
 env:
+  # GitHub
   PROJECT: ${{ github.repository }}
-
   BRANCH_NAME_CURRENT: ${{ github.head_ref || github.ref_name }}
   BRANCH_NAME_DEFAULT: ${{ github.event.repository.default_branch }}
 
-  # prettier-ignore
-  GO111MODULE: on  # yamllint disable-line rule:truthy
+  # Go
+  GO111MODULE: on # yamllint disable-line rule:truthy
+  GOHOME: ${{ github.workspace }}/src
 
 defaults:
   run:
     shell: bash
 
 jobs:
-  ##################################################
-  # Test the Go code
-  ##################################################
+  #########################################################
+  # Test
+  #########################################################
 
   test:
-    name: Go Test
+    # yamllint disable-line rule:line-length
+    name: Go Test (${{ matrix.go-version }}, ${{ matrix.go-os }}-${{ matrix.go-arch }})
     runs-on: ${{ matrix.os }}
 
     timeout-minutes: 30
     continue-on-error: false
 
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
+        go-version:
+          - "1.22"
+          - "1.23"
+          - "1.24"
+        go-os:
+          - "linux"
+          - "darwin"
+        go-arch:
+          - "amd64"
+          - "arm64"
         os:
           - ubuntu-latest
 
     steps:
-      - id: go_setup
-        name: Set up Go
-        uses: actions/setup-go@v5
-
-      - id: go_check
-        name: Go Check
-        run: |
-          go version
-          go env
-
       - id: checkout_repository
         name: Checkout repository
         uses: actions/checkout@v4
@@ -70,37 +74,63 @@ jobs:
           lfs: false
           submodules: recursive
 
+      - id: go_setup
+        name: Set up Go (${{ matrix.go-version }})
+        uses: actions/setup-go@v5
+        with:
+          check-latest: true
+          go-version: ${{ matrix.go-version }}
+
+      - id: go_check
+        name: Go Check (${{ matrix.go-version }})
+        run: |
+          go version
+          go env
+
       - id: go_mod_download
         name: Get dependencies
-        run: go mod download
+        run: |
+          cd ${{ env.GOHOME }}
+          go mod download
 
       - id: go_test
-        name: Go Test
+        name: Go Test (${{ matrix.go-version }})
         run: |
+          cd ${{ env.GOHOME }}
           go test -v ./...
 
       - id: go_staticcheck
         name: Go Staticcheck
         uses: dominikh/staticcheck-action@v1
         with:
+          working-directory: ${{ env.GOHOME }}
           version: "latest"
 
       - id: go_vet
         name: Go Vet
         run: |
+          cd ${{ env.GOHOME }}
           go vet ./...
 
       - id: go_lint
         name: Go Lint
         uses: golangci/golangci-lint-action@v7
         with:
+          working-directory: ${{ env.GOHOME }}
           version: latest
           args: >
-            --config=.linters/config/.golangci.yml
+            --config=${{ github.workspace }}/.linters/config/.golangci.yml
             --timeout=30m
             --issues-exit-code=1
 
       - id: go_build
-        name: Go Build
+        name: Go Build (${{ matrix.go-version }}, ${{ matrix.go-os }}-${{ matrix.go-arch }})
+        env:
+          GOOS: ${{ matrix.go-os }}
+          GOARCH: ${{ matrix.go-arch }}
+          ARTIFACT_NAME: ${{ env.PROJECT }}-${{ matrix.go-version }}-${{ matrix.go-os }}-${{ matrix.go-arch }}
         run: |
-          go build -v ./...
+          cd ${{ env.GOHOME }}
+          mkdir -p artifacts
+          go build -v -o artifacts/${{ env.ARTIFACT_NAME }}
+          echo "✅ Built artifact: ${{ env.ARTIFACT_NAME }}"

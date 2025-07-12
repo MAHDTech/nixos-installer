@@ -1,0 +1,67 @@
+---
+# Name: HYPERVISOR-3
+# Description: Hypervisor Node 3
+
+# Settings for NixOS
+nixos:
+  # The host ID to use for the installation.
+  hostId: "def90003"
+
+  # The flake to use for the installation.
+  flake: github:MAHDTech/nix-config#HYPERVISOR-3
+
+  # The NixOS configuration partition on the uefi disk.
+  config:
+    enabled: false
+
+# Settings for the UEFI partition.
+uefi:
+  # USB Flash Drive
+  disk: /dev/disk/by-id/usb-Samsung_Flash_Drive_0372324070000895-0:0
+  label: ESP
+  size: 4GiB
+
+# Settings for the ZFS pool.
+zfs:
+  pool:
+    name: zpool
+    compression: true
+    size: 0
+    type: raidz
+    disks:
+      # L2ARC
+      cache:
+        # M.2 SSD
+        - /dev/disk/by-id/ata-ORICO_9JZ6FOMPEXCNQ51JEYR2
+        # M.2 NVMe
+        - /dev/disk/by-id/nvme-INTEL_SSDPEKKW010T8_BTHH91230KR51P0E
+
+      # ZIL
+      log:
+        # SATA SSD
+        - /dev/disk/by-id/ata-SPCC_Solid_State_Disk_AA240816S3102401329
+        # SATA SSD
+        - /dev/disk/by-id/ata-Seagate_IronWolf_ZA1000NM10002-2ZG102_7TC005N5
+        # SATA SSD
+        - /dev/disk/by-id/ata-TEAM_T2531TB_TPBF2312040090101159
+
+      # Data
+      data:
+        # SATA HDD
+        - /dev/disk/by-id/ata-ST18000NE000-2YY101_ZR52EWSA
+        # SATA HDD
+        - /dev/disk/by-id/ata-ST18000NE000-2YY101_ZR548VPC
+        # SATA HDD
+        - /dev/disk/by-id/ata-ST18000NE000-2YY101_ZR54904J
+        # SATA HDD
+        - /dev/disk/by-id/ata-ST6000VN0041-2EL11C_ZA17XGVP
+        # SATA HDD
+        - /dev/disk/by-id/ata-TOSHIBA_MD04ACA500_5492K1PTFS9A
+
+      # Hot Spares
+      spare: []
+
+# Settings for the swap partition.
+swap:
+  enabled: true
+  size: 69GiB

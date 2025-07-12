@@ -4,75 +4,47 @@ Installs NixOS using ZFS in an opinionated way.
 
 ## Background
 
-This installs NixOS;
+This installs NixOS from a configuration file;
 
 - Using a dedicated UEFI drive.
-- Uses entire disk or disks for ZFS as the root filesystem with optional stripe or mirror.
+- Uses entire disk or disks for ZFS as the root filesystem with optional stripe, mirror or raidz.
 - Configures common mount paths as ZFS datasets
 - Configures the system to use the specified flake
 
 ## Usage
 
-1. Boot the NixOS Live ISO
+1. Boot the NixOS Live ISO (be sure to boot an LTS kernel for ZFS support).
 
 2. Setup Networking
 
-3. Copy the starting example configuration file (see configs folder for more examples)
+3. Either download a release binary or run the installer using the one-shot script:
 
 ```bash
-export CONFIG_FILE="/tmp/config.yaml"
+# Dry run example using a remote config
+curl -fsSL https://raw.githubusercontent.com/MAHDTech/nixos-installer/trunk/scripts/yolo.sh | sudo bash -s -- -config HYPERVISOR-1
 
-cp configs/example.yaml "${CONFIG_FILE}"
+# Execute mode example using a local config
+curl -fsSL https://raw.githubusercontent.com/MAHDTech/nixos-installer/trunk/scripts/yolo.sh | sudo bash -s -- -config /tmp/config.yaml -run
+
+# Execute mode example that also installs the defined Nix flake.
+curl -fsSL https://raw.githubusercontent.com/MAHDTech/nixos-installer/trunk/scripts/yolo.sh | sudo bash -s -- -config HYPERVISOR-1 -run -install
 ```
 
-4. Edit the configuration file as required
+## Configuration Options
 
-```bash
-vim "${CONFIG_FILE}"
-```
+The installer supports two ways to specify configuration files:
 
-4. Run the installer (nix version)
+### Config Names (Automatic GitHub Fetch)
 
-```bash
-# Dry run
-nix \
-    --extra-experimental-features nix-command \
-    --extra-experimental-features flakes \
-    run github:MAHDTech/nixos-installer \
-    -- \
-        -config "${CONFIG_FILE}"
+When you pass a simple name without path separators or file extensions:
 
-# Nuke all the things.
-nix \
-    --extra-experimental-features nix-command \
-    --extra-experimental-features flakes \
-    run github:MAHDTech/nixos-installer \
-    -- \
-        -config "${CONFIG_FILE}" \
-        -run
-```
+- `HYPERVISOR-1` → fetches `configs/HYPERVISOR-1.yaml` from GitHub
+- `example` → fetches `configs/example.yaml` from GitHub
 
-6. Or, run the installer (go version)
+### File Paths (Local Files)
 
-```bash
-nix-shell -p git go
+When you pass a path with separators or file extensions:
 
-git clone git@github.com:MAHDTech/nixos-installer.git
-
-cd nixos-installer
-
-# Dry run
-sudo -E go run main.go \
-  -config "${CONFIG_FILE}"
-
-# Nuke all the things but don't auto-install
-sudo -E go run main.go \
-  -config "${CONFIG_FILE}" \
-  -run
-
-# Nuke all the things and auto-install configured flake.
-sudo -E go run main.go \
-  -config "${CONFIG_FILE}" \
-  -run \
-  -install
-```
+- `./config.yaml` → reads local file
+- `/tmp/my-config.yaml` → reads local file
+- `configs/HYPERVISOR-1.yaml` → reads local file (if cloned repo)
