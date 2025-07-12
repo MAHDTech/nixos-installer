@@ -70,6 +70,13 @@ jobs:
           - ubuntu-latest
 
     steps:
+      - id: outputs
+        name: Set Outputs
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY#"${GITHUB_REPOSITORY_OWNER}/"}"
+          echo "REPO_NAME=${REPO_NAME}" >> "$GITHUB_OUTPUT"
+          echo "✅ Set REPO_NAME: ${REPO_NAME}"
+
       - id: checkout_repository
         name: Checkout Repository
         uses: actions/checkout@v4
@@ -100,11 +107,11 @@ jobs:
           nix profile install nixpkgs#devenv
 
       - id: build_artifact
-        name: Build Artifact (${{ matrix.goos }}-${{ matrix.goarch }})
+        name: Build Artifact (${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }})
         shell: devenv shell --quiet bash -- -e {0}
         run: |
-          ARTIFACT_PATH="$(devenv build outputs.${{ env.PROJECT }}-${{ matrix.goos }}-${{ matrix.goarch }})"
-          ARTIFACT_NAME="${ARTIFACT_PATH}/bin/${{ env.PROJECT }}"
+          ARTIFACT_PATH="$(devenv build outputs.${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }})"
+          ARTIFACT_NAME="${ARTIFACT_PATH}/bin/${{ env.REPO_NAME }}"
           echo "ARTIFACT_NAME=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
           echo "✅ Built artifact: ${ARTIFACT_NAME}"
 
@@ -115,14 +122,14 @@ jobs:
           ARTIFACT_NAME: ${{ steps.build_artifact.outputs.ARTIFACT_NAME }}
         run: |
           mkdir -p artifacts
-          cp "${ARTIFACT_NAME}" "artifacts/${{ env.PROJECT }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          cp "${ARTIFACT_NAME}" "artifacts/${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
 
       - id: upload_artifact
         name: Upload Build Artifact (${{ matrix.goos }}-${{ matrix.goarch }})
         uses: actions/upload-artifact@v4
         with:
-          path: artifacts/${{ env.PROJECT }}-${{ matrix.goos }}-${{ matrix.goarch }}
-          name: ${{ env.PROJECT }}-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: artifacts/${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: ${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
           if-no-files-found: error
 
   #########################################################
@@ -244,14 +251,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          pattern: ${{ env.PROJECT }}-*
+          pattern: ${{ env.REPO_NAME }}-*
 
       - id: generate_checksums
         name: Generate Checksums
         shell: devenv shell --quiet bash -- -e {0}
         run: |
           cd artifacts
-          sha256sum ${{ env.PROJECT }}-* > checksums.txt
+          sha256sum ${{ env.REPO_NAME }}-* > checksums.txt
 
       - id: create_release
         name: Create GitHub release

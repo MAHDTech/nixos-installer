@@ -44,14 +44,14 @@ jobs:
 
   test:
     # yamllint disable-line rule:line-length
-    name: Go Test (${{ matrix.go-version }}, ${{ matrix.go-os }}, ${{ matrix.go-arch }})
+    name: Go Test (${{ matrix.go-version }}, ${{ matrix.go-os }}-${{ matrix.go-arch }})
     runs-on: ${{ matrix.os }}
 
     timeout-minutes: 30
     continue-on-error: false
 
     strategy:
-      fail-fast: false # Run all matrix jobs, even if some fail.
+      fail-fast: false
       matrix:
         go-version:
           - "1.22"
@@ -59,6 +59,7 @@ jobs:
           - "1.24"
         go-os:
           - "linux"
+          - "darwin"
         go-arch:
           - "amd64"
           - "arm64"
@@ -123,7 +124,7 @@ jobs:
             --issues-exit-code=1
 
       - id: go_build
-        name: Go Build (${{ matrix.go-version }}, ${{ matrix.go-os }}, ${{ matrix.go-arch }})
+        name: Go Build (${{ matrix.go-version }}, ${{ matrix.go-os }}-${{ matrix.go-arch }})
         env:
           GOOS: ${{ matrix.go-os }}
           GOARCH: ${{ matrix.go-arch }}
