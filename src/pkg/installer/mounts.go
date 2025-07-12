@@ -33,22 +33,60 @@ func mountFileSystems(
 	zfsDatasetPathIncusStoragePools := path.Join(zfsPoolName, zfsDatasetIncusStoragePools)
 	zfsDatasetPathTmp := path.Join(zfsPoolName, zfsDatasetTmp)
 
+	// Mount core filesystems
+	if err := mountCoreFilesystems(execute, mountPoint, partitionInfo, zfsDatasetPathRoot, zfsDatasetPathBoot); err != nil {
+		return err
+	}
+
+	// Mount NixOS config partition if enabled
+	if err := mountNixOSConfigPartition(execute, mountPoint, configData, partitionInfo); err != nil {
+		return err
+	}
+
+	// Mount user filesystems
+	if err := mountUserFilesystems(execute, zfsDatasetPathHome, zfsDatasetPathNix); err != nil {
+		return err
+	}
+
+	// Mount system filesystems
+	if err := mountSystemFilesystems(execute, zfsDatasetPathVar, zfsDatasetPathLib); err != nil {
+		return err
+	}
+
+	// Mount container filesystems
+	if err := mountContainerFilesystems(execute, zfsDatasetPathDocker, zfsDatasetPathContainers, zfsDatasetPathIncus, zfsDatasetPathIncusStoragePools); err != nil {
+		return err
+	}
+
+	// Mount temporary filesystem
+	if err := mountTemporaryFilesystem(execute, mountPoint, zfsDatasetPathTmp); err != nil {
+		return err
+	}
+
+	sysutil.Info("All filesystems mounted!")
+	return nil
+}
+
+// mountCoreFilesystems mounts the root and boot filesystems
+func mountCoreFilesystems(
+	execute bool,
+	mountPoint string,
+	partitionInfo PartitionInfo,
+	zfsDatasetPathRoot, zfsDatasetPathBoot string,
+) error {
 	// 1. Mount the root dataset to the configured altroot
-	//    Example: /mnt/nixos + "/"
 	err := mountZFSDataset(execute, zfsDatasetPathRoot)
 	if err != nil {
 		return fmt.Errorf("failed to mount root filesystem: %w", err)
 	}
 
 	// 2. Mount the boot pool to the configured altroot
-	//    Example: /mnt/nixos + "/boot"
 	err = mountZFSDataset(execute, zfsDatasetPathBoot)
 	if err != nil {
 		return fmt.Errorf("failed to mount boot filesystem: %w", err)
 	}
 
 	// 3. Mount the UEFI partition to "/boot/efi"
-	//    Example: /mnt/nixos + "/boot/efi"
 	mountPointUEFI := path.Join(mountPoint, "boot/efi")
 	sysutil.Info("Mounting UEFI partition %s to %s.", partitionInfo.UEFI, mountPointUEFI)
 	_, err = sysutil.Execute(
@@ -66,8 +104,17 @@ func mountFileSystems(
 		return fmt.Errorf("failed to mount UEFI partition: %w", err)
 	}
 
-	// 4. Mount the NixOS config partition if enabled.
-	//    Example: /mnt/nixos + "/boot/nixos"
+	return nil
+}
+
+// mountNixOSConfigPartition mounts the NixOS config partition if enabled
+func mountNixOSConfigPartition(
+	execute bool,
+	mountPoint string,
+	configData *config.Config,
+	partitionInfo PartitionInfo,
+) error {
+	// Mount the NixOS config partition if enabled.
 	mountPointNixOSConfig := path.Join(mountPoint, "boot/nixos")
 	if configData.NixOS.Config.Enabled {
 		sysutil.Info(
@@ -75,7 +122,7 @@ func mountFileSystems(
 			partitionInfo.NixOSConfig,
 			mountPointNixOSConfig,
 		)
-		_, err = sysutil.Execute(
+		_, err := sysutil.Execute(
 			execute,
 			sysutil.ModeNormal,
 			"mount",
@@ -97,71 +144,85 @@ func mountFileSystems(
 		sysutil.Info("Skipping NixOS config partition mounting as it is disabled.")
 	}
 
-	// 5. Mount the home dataset to the configured altroot
-	//    Example: /mnt/nixos + "/home"
-	err = mountZFSDataset(execute, zfsDatasetPathHome)
+	return nil
+}
+
+// mountUserFilesystems mounts user-related filesystems
+func mountUserFilesystems(execute bool, zfsDatasetPathHome, zfsDatasetPathNix string) error {
+	// Mount the home dataset
+	err := mountZFSDataset(execute, zfsDatasetPathHome)
 	if err != nil {
 		return fmt.Errorf("failed to mount home filesystem: %w", err)
 	}
 
-	// 6. Mount the nix dataset to the configured altroot
-	//    Example: /mnt/nixos + "/nix"
+	// Mount the nix dataset
 	err = mountZFSDataset(execute, zfsDatasetPathNix)
 	if err != nil {
 		return fmt.Errorf("failed to mount nix filesystem: %w", err)
 	}
 
-	// 7. Mount the var dataset to the configured altroot
-	//    Example: /mnt/nixos + "/var"
-	err = mountZFSDataset(execute, zfsDatasetPathVar)
+	return nil
+}
+
+// mountSystemFilesystems mounts system-related filesystems
+func mountSystemFilesystems(execute bool, zfsDatasetPathVar, zfsDatasetPathLib string) error {
+	// Mount the var dataset
+	err := mountZFSDataset(execute, zfsDatasetPathVar)
 	if err != nil {
 		return fmt.Errorf("failed to mount var filesystem: %w", err)
 	}
 
-	// 8. Mount the lib dataset to the configured altroot
-	//    Example: /mnt/nixos + "/var/lib"
+	// Mount the lib dataset
 	err = mountZFSDataset(execute, zfsDatasetPathLib)
 	if err != nil {
 		return fmt.Errorf("failed to mount lib filesystem: %w", err)
 	}
 
-	// 9. Mount the docker dataset to the configured altroot
-	//    Example: /mnt/nixos + "/var/lib/docker"
-	err = mountZFSDataset(execute, zfsDatasetPathDocker)
+	return nil
+}
+
+// mountContainerFilesystems mounts container-related filesystems
+func mountContainerFilesystems(
+	execute bool,
+	zfsDatasetPathDocker, zfsDatasetPathContainers, zfsDatasetPathIncus, zfsDatasetPathIncusStoragePools string,
+) error {
+	// Mount the docker dataset
+	err := mountZFSDataset(execute, zfsDatasetPathDocker)
 	if err != nil {
 		return fmt.Errorf("failed to mount docker filesystem: %w", err)
 	}
 
-	// 10. Mount the containers dataset to the configured altroot
-	//     Example: /mnt/nixos + "/var/lib/containers"
+	// Mount the containers dataset
 	err = mountZFSDataset(execute, zfsDatasetPathContainers)
 	if err != nil {
 		return fmt.Errorf("failed to mount containers filesystem: %w", err)
 	}
 
-	// 11. Mount the incus dataset to the configured altroot
-	//     Example: /mnt/nixos + "/var/lib/incus"
+	// Mount the incus dataset
 	err = mountZFSDataset(execute, zfsDatasetPathIncus)
 	if err != nil {
 		return fmt.Errorf("failed to mount incus filesystem: %w", err)
 	}
 
-	// 12. Mount the incus storage pools dataset to the configured altroot
-	//     Example: /mnt/nixos + "/var/lib/incus/storage-pools"
+	// Mount the incus storage pools dataset
 	err = mountZFSDataset(execute, zfsDatasetPathIncusStoragePools)
 	if err != nil {
 		return fmt.Errorf("failed to mount incus storage pools filesystem: %w", err)
 	}
 
-	// 13. Mount the tmp dataset to the configured altroot
-	//     Example: /mnt/nixos + "/tmp"
+	return nil
+}
+
+// mountTemporaryFilesystem mounts the temporary filesystem
+func mountTemporaryFilesystem(execute bool, mountPoint, zfsDatasetPathTmp string) error {
+	// Mount the tmp dataset
 	mountPointTmp := path.Join(mountPoint, "tmp")
-	err = mountZFSDataset(execute, zfsDatasetPathTmp)
+	err := mountZFSDataset(execute, zfsDatasetPathTmp)
 	if err != nil {
 		return fmt.Errorf("failed to mount tmp filesystem: %w", err)
 	}
 
-	// 13. Set permissions for /tmp
+	// Set permissions for /tmp
 	sysutil.Info("Setting permissions for %s", mountPointTmp)
 	_, err = sysutil.Execute(
 		execute,
@@ -174,7 +235,6 @@ func mountFileSystems(
 		return fmt.Errorf("failed to set permissions for /tmp: %w", err)
 	}
 
-	sysutil.Info("All filesystems mounted!")
 	return nil
 }
 

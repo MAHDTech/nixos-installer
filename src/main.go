@@ -84,29 +84,38 @@ func main() {
 		return
 	}
 
+	// Initialize logger early to ensure defer works properly
+	var exitCode int
+	defer func() {
+		if err := sysutil.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to close logger: %v\n", err)
+		}
+		if exitCode != 0 {
+			os.Exit(exitCode)
+		}
+	}()
+
 	// Parse log levels
 	consoleLogLevel, err := parseLogLevel(*consoleLevel)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Invalid console log level: %v\n", err)
-		os.Exit(1)
+		exitCode = 1
+		return
 	}
 
 	fileLogLevel, err := parseLogLevel(*fileLevel)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Invalid file log level: %v\n", err)
-		os.Exit(1)
+		exitCode = 1
+		return
 	}
 
 	// Initialize logger
 	if err := sysutil.InitLogger(*logFile, consoleLogLevel, fileLogLevel); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
-		os.Exit(1)
+		exitCode = 1
+		return
 	}
-	defer func() {
-		if err := sysutil.Close(); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to close logger: %v\n", err)
-		}
-	}()
 
 	sysutil.Info("Starting NixOS Installer...")
 
@@ -120,7 +129,8 @@ func main() {
 	err = installer.Run(*configFile, *execute, *executeInstall)
 	if err != nil {
 		sysutil.Error("Installation failed with error: %v", err)
-		os.Exit(1)
+		exitCode = 1
+		return
 	}
 
 	sysutil.Success("Installation completed successfully!")

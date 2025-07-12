@@ -41,13 +41,14 @@ func Execute(
 	cmd := exec.Command(path, args...) // #nosec G204
 
 	// Configure command IO based on mode
-	if mode == ModeStdOut {
+	switch mode {
+	case ModeStdOut:
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
-	} else if mode == ModeStdErr {
+	case ModeStdErr:
 		cmd.Stdout = os.Stdout
 		cmd.Stdin = os.Stdin
-	} else {
+	default:
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
@@ -64,64 +65,84 @@ func Execute(
 	}
 
 	// Execute based on the selected mode
+	return executeCommand(cmd, mode)
+}
+
+// executeCommand handles the actual command execution based on mode
+func executeCommand(cmd *exec.Cmd, mode ExecuteMode) (string, error) {
 	switch mode {
-
 	case ModeNormal:
-		if err := cmd.Run(); err != nil {
-			return "", fmt.Errorf("failed to execute command %s: %w", cmd.String(), err)
-		}
-		return "", nil
-
+		return executeNormal(cmd)
 	case ModeSilent:
-		if err := cmd.Run(); err != nil {
-			Warn("Command failed (but ignored): %s, Error: %s", cmd.String(), err)
-		}
-		return "", nil
-
+		return executeSilent(cmd)
 	case ModeStdOut:
-		output, err := cmd.Output() // Capture the Stdout
-		if err != nil {
-			return "", fmt.Errorf(
-				"failed to execute command %s and capture output: %w",
+		return executeStdOut(cmd)
+	case ModeStdErr:
+		return executeStdErr(cmd)
+	default:
+		return "", fmt.Errorf("invalid execution mode: %d", mode)
+	}
+}
+
+// executeNormal runs the command and returns any errors
+func executeNormal(cmd *exec.Cmd) (string, error) {
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to execute command %s: %w", cmd.String(), err)
+	}
+	return "", nil
+}
+
+// executeSilent runs the command and only logs errors without returning them
+func executeSilent(cmd *exec.Cmd) (string, error) {
+	if err := cmd.Run(); err != nil {
+		Warn("Command failed (but ignored): %s, Error: %s", cmd.String(), err)
+	}
+	return "", nil
+}
+
+// executeStdOut captures and returns stdout from the command
+func executeStdOut(cmd *exec.Cmd) (string, error) {
+	output, err := cmd.Output() // Capture the Stdout
+	if err != nil {
+		return "", fmt.Errorf(
+			"failed to execute command %s and capture output: %w",
+			cmd.String(),
+			err,
+		)
+	}
+	return string(output), nil
+}
+
+// executeStdErr captures and returns stderr from the command
+func executeStdErr(cmd *exec.Cmd) (string, error) {
+	// Capture stderr by redirecting it to a pipe
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return "", fmt.Errorf("failed to create stderr pipe: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("failed to start command %s: %w", cmd.String(), err)
+	}
+
+	// Read stderr
+	stderrBytes, err := io.ReadAll(stderr)
+	if err != nil {
+		return "", fmt.Errorf("failed to read stderr: %w", err)
+	}
+
+	// Wait for command to complete
+	if err := cmd.Wait(); err != nil {
+		return string(
+				stderrBytes,
+			), fmt.Errorf(
+				"failed to execute command %s: %w",
 				cmd.String(),
 				err,
 			)
-		}
-		return string(output), nil
-
-	case ModeStdErr:
-		// Capture stderr by redirecting it to a pipe
-		stderr, err := cmd.StderrPipe()
-		if err != nil {
-			return "", fmt.Errorf("failed to create stderr pipe: %w", err)
-		}
-
-		if err := cmd.Start(); err != nil {
-			return "", fmt.Errorf("failed to start command %s: %w", cmd.String(), err)
-		}
-
-		// Read stderr
-		stderrBytes, err := io.ReadAll(stderr)
-		if err != nil {
-			return "", fmt.Errorf("failed to read stderr: %w", err)
-		}
-
-		// Wait for command to complete
-		if err := cmd.Wait(); err != nil {
-			return string(
-					stderrBytes,
-				), fmt.Errorf(
-					"failed to execute command %s: %w",
-					cmd.String(),
-					err,
-				)
-		}
-
-		return string(stderrBytes), nil
 	}
 
-	// This should never happen if the mode is valid
-	return "", fmt.Errorf("invalid execution mode: %d", mode)
+	return string(stderrBytes), nil
 }
 
 // IsValidBlockDevice function will return true if the device is a valid block device.
