@@ -168,6 +168,12 @@ jobs:
     needs:
       - build
 
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: read
+      statuses: read
+
     timeout-minutes: 30
     continue-on-error: false
 
@@ -298,9 +304,9 @@ jobs:
 
       - id: create_release
         name: Create GitHub release
-        uses: actions/github-script@v7
         # TODO: REMOVE THIS ONCE WE HAVE A RELEASE WORKFLOW WORKING.
         if: github.event_name == 'push' && github.ref == 'refs/heads/trunk'
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -364,6 +370,8 @@ jobs:
 
       - id: upload_assets
         name: Upload Release Assets
+        # TODO: REMOVE THIS ONCE WE HAVE A RELEASE WORKFLOW WORKING.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/trunk'
         shell: devenv shell --quiet bash -- -e {0}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -401,6 +409,12 @@ jobs:
       - build
       - release
 
+    permissions:
+      contents: read
+      packages: read
+      pull-requests: read
+      statuses: write
+
     if: always()
 
     timeout-minutes: 10
@@ -413,6 +427,14 @@ jobs:
           - ubuntu-latest
 
     steps:
+      - id: checkout_repository
+        name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: none
+          fetch-depth: 0 # Fetch all history for tags
+
       - id: install_nix
         name: "Install Nix ❄️"
         uses: cachix/install-nix-action@v31

@@ -9,7 +9,7 @@ let
 
   # Variables
   name = "nixos-installer";
-  version = "1.0.0";
+  version = "0.1.0";
 
   # Custom packages.
   nixos-installer = import ./devenv/nixos-installer.nix {
