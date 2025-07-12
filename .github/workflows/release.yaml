@@ -113,21 +113,20 @@ jobs:
           REPO_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}
         run: |
           ARTIFACT_PATH="$(devenv build outputs.${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }})"
-          ARTIFACT_NAME="${ARTIFACT_PATH}/bin/${{ env.REPO_NAME }}"
-          echo "ARTIFACT_NAME=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
-          echo "✅ Built artifact: ${ARTIFACT_NAME}"
+          echo "ARTIFACT_PATH=${ARTIFACT_PATH}" >> "$GITHUB_OUTPUT"
+          echo "✅ Artifact Path: ${ARTIFACT_PATH}"
 
       - id: copy_artifact
-        name: Copy Build Artifact (${{ matrix.goos }}-${{ matrix.goarch }})
+        name: Copy Artifact (${{ steps.set_outputs.outputs.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }})
         shell: devenv shell --quiet bash -- -e {0}
         env:
           REPO_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}
           ARTIFACT_PATH: ${{ steps.build_artifact.outputs.ARTIFACT_PATH }}
-          ARTIFACT_NAME: ${{ steps.build_artifact.outputs.ARTIFACT_NAME }}
+          ARTIFACT_NAME: ${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
         run: |
-          mkdir -p artifacts
           tree -L 2 "${ARTIFACT_PATH}"
-          cp "${ARTIFACT_NAME}" "artifacts/${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          mkdir -p artifacts
+          cp "${ARTIFACT_PATH}/bin/${{ env.REPO_NAME }}" "artifacts/${{ env.ARTIFACT_NAME }}"
 
       - id: upload_artifact
         name: Upload Build Artifact (${{ matrix.goos }}-${{ matrix.goarch }})
