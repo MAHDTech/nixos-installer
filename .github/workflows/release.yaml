@@ -70,7 +70,7 @@ jobs:
           - ubuntu-latest
 
     steps:
-      - id: outputs
+      - id: set_outputs
         name: Set Outputs
         run: |
           REPO_NAME="${GITHUB_REPOSITORY#"${GITHUB_REPOSITORY_OWNER}/"}"
@@ -107,8 +107,10 @@ jobs:
           nix profile install nixpkgs#devenv
 
       - id: build_artifact
-        name: Build Artifact (${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }})
+        name: Build Artifact (${{ steps.set_outputs.outputs.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }})
         shell: devenv shell --quiet bash -- -e {0}
+        env:
+          REPO_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}
         run: |
           ARTIFACT_PATH="$(devenv build outputs.${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }})"
           ARTIFACT_NAME="${ARTIFACT_PATH}/bin/${{ env.REPO_NAME }}"
@@ -119,6 +121,7 @@ jobs:
         name: Copy Build Artifact (${{ matrix.goos }}-${{ matrix.goarch }})
         shell: devenv shell --quiet bash -- -e {0}
         env:
+          REPO_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}
           ARTIFACT_NAME: ${{ steps.build_artifact.outputs.ARTIFACT_NAME }}
         run: |
           mkdir -p artifacts
@@ -127,6 +130,8 @@ jobs:
       - id: upload_artifact
         name: Upload Build Artifact (${{ matrix.goos }}-${{ matrix.goarch }})
         uses: actions/upload-artifact@v4
+        env:
+          REPO_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}
         with:
           path: artifacts/${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
           name: ${{ env.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
@@ -153,6 +158,13 @@ jobs:
           - ubuntu-latest
 
     steps:
+      - id: set_outputs
+        name: Set Outputs
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY#"${GITHUB_REPOSITORY_OWNER}/"}"
+          echo "REPO_NAME=${REPO_NAME}" >> "$GITHUB_OUTPUT"
+          echo "✅ Set REPO_NAME: ${REPO_NAME}"
+
       - id: checkout_repository
         name: Checkout Repository
         uses: actions/checkout@v4
@@ -249,6 +261,8 @@ jobs:
       - id: download_artifacts
         name: Download Build Artifacts
         uses: actions/download-artifact@v4
+        env:
+          REPO_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}
         with:
           path: artifacts
           pattern: ${{ env.REPO_NAME }}-*
@@ -256,6 +270,8 @@ jobs:
       - id: generate_checksums
         name: Generate Checksums
         shell: devenv shell --quiet bash -- -e {0}
+        env:
+          REPO_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}
         run: |
           cd artifacts
           sha256sum ${{ env.REPO_NAME }}-* > checksums.txt
