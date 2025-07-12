@@ -17,7 +17,7 @@ nixos:
 # Settings for the UEFI partition.
 uefi:
   # USB Flash Drive
-  disk: /dev/disk/by-id/
+  disk: /dev/disk/by-id/usb-Samsung_Flash_Drive_0373624070001090-0:0
   label: ESP
   size: 4GiB
 
@@ -32,31 +32,31 @@ zfs:
       # L2ARC
       cache:
         # M.2 SSD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-SPCC_M.2_SSD_AA000000000000000812
         # M.2 NVMe
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/nvme-Samsung_SSD_970_EVO_250GB_S465NB0K439696P
 
       # ZIL
       log:
         # SATA SSD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-SPCC_Solid_State_Disk_AA240816S3102401122
         # SATA SSD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-SPCC_Solid_State_Disk_AA240816S3102401171
         # SATA SSD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-SPCC_Solid_State_Disk_AA240816S3102401309
         # SATA SSD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-SPCC_Solid_State_Disk_AA240816S3102401360
 
       # Data
       data:
         # SATA HDD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-ST18000NE000-2YY101_ZR52FWX1
         # SATA HDD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-ST18000NE000-2YY101_ZR52K7JR
         # SATA HDD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR5FKW8Z
         # SATA HDD
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/ata-ST18000NM000J-2TV103_ZR5FKY4D
 
       # Hot Spares
       spare: []
@@ -64,4 +64,3 @@ zfs:
 # Settings for the swap partition.
 swap:
   enabled: false
-
