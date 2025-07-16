@@ -29,8 +29,8 @@ zfs:
     type: stripe
     disks:
       data:
-        - /dev/disk/by-id/
-        - /dev/disk/by-id/
+        - /dev/disk/by-id/nvme-ORICO_2504SN1917205507
+        - /dev/disk/by-id/nvme-ORICO_2504SN1917205767
 
 # Settings for the swap partition.
 swap:
