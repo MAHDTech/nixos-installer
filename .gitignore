@@ -44,6 +44,6 @@ devenv.local.nix
 # Nix result
 result
 
-# Ignore the binary and log.
-src/nixos-installer
-src/nixos-installer.log
+# Ignore the log.
+**/nixos-installer.log
+

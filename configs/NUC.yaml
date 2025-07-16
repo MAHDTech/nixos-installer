@@ -29,8 +29,8 @@ zfs:
     type: stripe
     disks:
       data:
-        - /dev/disk/by-id/nvme-Corsair_MP600_PRO_NH_A5JVB4273059HX
-        - /dev/disk/by-id/nvme-Corsair_MP600_PRO_NH_A5JVB427305AF2
+        - /dev/disk/by-id/nvme-ORICO_2504SN1917205507
+        - /dev/disk/by-id/nvme-ORICO_2504SN1917205767
 
 # Settings for the swap partition.
 swap:

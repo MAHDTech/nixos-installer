@@ -31,8 +31,8 @@ zfs:
       cache: []
       log: []
       data:
-        - /dev/disk/by-id/???
-        - /dev/disk/by-id/???
+        - /dev/disk/by-id/nvme-Corsair_MP600_PRO_NH_A5JVB4273059HX
+        - /dev/disk/by-id/nvme-Corsair_MP600_PRO_NH_A5JVB427305AF2
       spare: []
 
 # Settings for the swap partition.
