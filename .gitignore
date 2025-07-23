@@ -1,4 +1,4 @@
-# If you prefer the allow list template instead of the deny list, see community template:
+g If you prefer the allow list template instead of the deny list, see community template:
 # https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
 #
 # Binaries for programs and plugins
@@ -44,6 +44,9 @@ devenv.local.nix
 # Nix result
 result
 
-# Ignore the log.
+# Ignore the log no matter where it is.
 **/nixos-installer.log
+
+# Ignore the nixos-installer binary
+src/nixos-installer
 

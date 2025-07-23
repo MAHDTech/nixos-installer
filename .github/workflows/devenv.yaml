@@ -20,9 +20,6 @@ on:  # yamllint disable-line rule:truthy
       - devenv.lock
       - devenv/**
       - src/**
-    paths_ignore:
-      - "docs/**"
-      - "**.md"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

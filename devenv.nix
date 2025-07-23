@@ -139,7 +139,11 @@ in
       ripsecrets.enable = true;
       shellcheck.enable = true;
       shfmt.enable = true;
-      staticcheck.enable = true;
+      staticcheck.enable = false;
+      staticcheck-custom = {
+        enable = true;
+        entry = "staticcheck-custom";
+      };
       statix.enable = true;
       trufflehog.enable = true;
       typos.enable = true;
@@ -167,6 +171,30 @@ in
   '';
 
   scripts = {
+
+    staticcheck-custom = {
+      package = pkgs.bash;
+      description = "Runs staticcheck from the src directory";
+      exec = ''
+        ERR=0
+        # Filter files to only include those starting with src/
+        SRC_FILES=$(echo "$@" | xargs -n1 | grep "^src/" || true)
+        if [[ -n "$SRC_FILES" ]]; then
+          echo "Processing source files: $SRC_FILES"
+          for DIR in $(echo "$SRC_FILES" | xargs -n1 dirname | sed 's|^src/||' | sort -u); do
+            echo "DIR: $DIR"
+            staticcheck ./"$DIR"
+            CODE="$?"
+            if [[ "$ERR" -eq 0 ]]; then
+               ERR="$CODE"
+            fi
+          done
+        else
+          echo "No source files found"
+        fi
+        exit $ERR
+      '';
+    };
 
     go-be-lazy = {
       package = pkgs.bash;
