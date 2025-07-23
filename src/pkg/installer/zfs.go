@@ -673,6 +673,7 @@ func createContainerDatasets(execute bool, zfsPoolName string) error {
 		"create",
 		"-o", "canmount=on",
 		"-o", "mountpoint=/var/lib/incus",
+		"-o", "devices=on", // Enable devices for Incus containers
 		"-o", "com.sun:auto-snapshot=false",
 		zfsDatasetPathIncus,
 	)
@@ -694,6 +695,7 @@ func createContainerDatasets(execute bool, zfsPoolName string) error {
 		"create",
 		"-o", "canmount=on",
 		"-o", "mountpoint=/var/lib/incus/storage-pools",
+		"-o", "devices=on", // Enable devices for Incus storage pools
 		"-o", "com.sun:auto-snapshot=false",
 		zfsDatasetPathIncusStoragePools,
 	)

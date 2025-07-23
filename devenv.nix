@@ -139,7 +139,11 @@ in
       ripsecrets.enable = true;
       shellcheck.enable = true;
       shfmt.enable = true;
-      staticcheck.enable = true;
+      staticcheck.enable = false;
+      staticcheck-custom = {
+        enable = true;
+        entry = "staticcheck-custom";
+      };
       statix.enable = true;
       trufflehog.enable = true;
       typos.enable = true;
@@ -167,6 +171,23 @@ in
   '';
 
   scripts = {
+
+    staticcheck-custom = {
+      package = pkgs.bash;
+      description = "Runs staticcheck from the src directory";
+      exec = ''
+        pushd src > /dev/null
+        for DIR in $(echo "$@" | xargs -n1 dirname | sed 's|^src/||' | sort -u); do
+          staticcheck ./"$DIR"
+          CODE="$?"
+          if [[ "$ERR" -eq 0 ]]; then
+             ERR="$CODE"
+          fi
+        done
+        exit $ERR
+        popd > /dev/null
+      '';
+    };
 
     go-be-lazy = {
       package = pkgs.bash;
