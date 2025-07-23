@@ -180,15 +180,17 @@ in
         # Filter files to only include those starting with src/
         SRC_FILES=$(echo "$@" | xargs -n1 | grep "^src/" || true)
         if [[ -n "$SRC_FILES" ]]; then
-          pushd src > /dev/null
+          echo "Processing source files: $SRC_FILES"
           for DIR in $(echo "$SRC_FILES" | xargs -n1 dirname | sed 's|^src/||' | sort -u); do
+            echo "DIR: $DIR"
             staticcheck ./"$DIR"
             CODE="$?"
             if [[ "$ERR" -eq 0 ]]; then
                ERR="$CODE"
             fi
           done
-          popd > /dev/null
+        else
+          echo "No source files found"
         fi
         exit $ERR
       '';
