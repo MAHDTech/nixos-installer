@@ -35,7 +35,7 @@ env:
 
   # Go
   GO111MODULE: on # yamllint disable-line rule:truthy
-  GOHOME: ${{ github.workspace }}
+  GOHOME: ${{ github.workspace }}/src
 
 defaults:
   run:
