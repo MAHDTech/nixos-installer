@@ -280,8 +280,24 @@ func createZFSDatasets(
 		return err
 	}
 
-	if err := createContainerDatasets(execute, zfsPoolName); err != nil {
-		return err
+	// Create datasets for containers/docker if enabled
+	if configData.Containers.Enabled {
+		sysutil.Info("Creating container datasets (containers.enabled = true)")
+		if err := createContainerDatasets(execute, zfsPoolName); err != nil {
+			return err
+		}
+	} else {
+		sysutil.Info("Skipping container datasets (containers.enabled = false)")
+	}
+
+	// Create datasets for Incus if enabled
+	if configData.Incus.Enabled {
+		sysutil.Info("Creating Incus datasets (incus.enabled = true)")
+		if err := createIncusDatasets(execute, zfsPoolName); err != nil {
+			return err
+		}
+	} else {
+		sysutil.Info("Skipping Incus datasets (incus.enabled = false)")
 	}
 
 	// Wait a bit for ZFS changes to settle
@@ -623,7 +639,7 @@ func createSystemDatasets(execute bool, zfsPoolName string) error {
 	return nil
 }
 
-// createContainerDatasets creates Docker, containers, and Incus datasets
+// createContainerDatasets creates Docker and containers datasets
 func createContainerDatasets(execute bool, zfsPoolName string) error {
 	// --- Var/Lib/Docker Dataset ---
 	zfsDatasetPathDocker := path.Join(zfsPoolName, zfsDatasetDocker)
@@ -663,10 +679,15 @@ func createContainerDatasets(execute bool, zfsPoolName string) error {
 		)
 	}
 
+	return nil
+}
+
+// createIncusDatasets creates Incus-specific datasets
+func createIncusDatasets(execute bool, zfsPoolName string) error {
 	// --- Var/Lib/Incus Dataset ---
 	zfsDatasetPathIncus := path.Join(zfsPoolName, zfsDatasetIncus)
 	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathIncus)
-	_, err = sysutil.Execute(
+	_, err := sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
 		"zfs",

@@ -98,6 +98,24 @@ type Config struct {
 		Enabled bool   `yaml:"enabled" default:"false"`
 		Size    string `yaml:"size" default:"0"`
 	} `yaml:"swap" validate:"required"`
+
+	/*
+	 Containers
+
+	 This section defines settings for container runtimes (Docker, Podman, etc).
+	*/
+	Containers struct {
+		Enabled bool `yaml:"enabled" default:"false"`
+	} `yaml:"containers"`
+
+	/*
+	 Incus
+
+	 This section defines settings for Incus container/VM management.
+	*/
+	Incus struct {
+		Enabled bool `yaml:"enabled" default:"false"`
+	} `yaml:"incus"`
 }
 
 // ReadConfig reads and validates the YAML configuration file.

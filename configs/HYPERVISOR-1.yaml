@@ -64,3 +64,11 @@ zfs:
 # Settings for the swap partition.
 swap:
   enabled: false
+
+# Settings for Containers/Docker
+containers:
+  enabled: true
+
+# Settings for Incus.
+incus:
+  enabled: true
