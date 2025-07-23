@@ -176,16 +176,21 @@ in
       package = pkgs.bash;
       description = "Runs staticcheck from the src directory";
       exec = ''
-        pushd src > /dev/null
-        for DIR in $(echo "$@" | xargs -n1 dirname | sed 's|^src/||' | sort -u); do
-          staticcheck ./"$DIR"
-          CODE="$?"
-          if [[ "$ERR" -eq 0 ]]; then
-             ERR="$CODE"
-          fi
-        done
+        ERR=0
+        # Filter files to only include those starting with src/
+        SRC_FILES=$(echo "$@" | xargs -n1 | grep "^src/" || true)
+        if [[ -n "$SRC_FILES" ]]; then
+          pushd src > /dev/null
+          for DIR in $(echo "$SRC_FILES" | xargs -n1 dirname | sed 's|^src/||' | sort -u); do
+            staticcheck ./"$DIR"
+            CODE="$?"
+            if [[ "$ERR" -eq 0 ]]; then
+               ERR="$CODE"
+            fi
+          done
+          popd > /dev/null
+        fi
         exit $ERR
-        popd > /dev/null
       '';
     };
 
