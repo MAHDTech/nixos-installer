@@ -30,10 +30,10 @@ env:
 
   # Nix
   NIXPKGS_ALLOW_UNFREE: 1
-  
+
   # Go
-  GO111MODULE: on  # yamllint disable-line rule:truthy
-  GOHOME: ${{ github.workspace }}/src
+  GO111MODULE: on # yamllint disable-line rule:truthy
+  GOHOME: ${{ github.workspace }}
 
 defaults:
   run:
