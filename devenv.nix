@@ -181,7 +181,8 @@ in
         GO_FILES=$(echo "$@" | xargs -n1 | grep "^src/.*\.go$" || true)
         if [[ -n "$GO_FILES" ]]; then
           echo "Processing Go files: $GO_FILES"
-          DIRS=$(echo "$GO_FILES" | xargs -n1 dirname | sed 's|^src/|./|' | sort -u)
+          # Extract unique directories and convert src/pkg/installer -> ./pkg/installer
+          DIRS=$(echo "$GO_FILES" | xargs -n1 dirname | sed 's|^src/|./|; s|^src$|.|' | sort -u)
           pushd src > /dev/null
           for DIR in $DIRS;
           do
