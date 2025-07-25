@@ -181,7 +181,8 @@ in
         GO_FILES=$(echo "$@" | xargs -n1 | grep "^src/.*\.go$" || true)
         if [[ -n "$GO_FILES" ]]; then
           echo "Processing Go files: $GO_FILES"
-          DIRS=$(echo "$GO_FILES" | xargs -n1 dirname | sort -u)
+          DIRS=$(echo "$GO_FILES" | xargs -n1 dirname | sed 's|^src/|./|' | sort -u)
+          pushd src > /dev/null
           for DIR in $DIRS;
           do
             echo "Checking directory: $DIR"
@@ -192,6 +193,7 @@ in
               ERR=1
             fi
           done
+          popd > /dev/null
         else
           echo "No Go source files found"
         fi
