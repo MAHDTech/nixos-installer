@@ -166,32 +166,79 @@ func createDirectories(execute bool, mountPoint string, configData *config.Confi
 		return fmt.Errorf("failed to create lib directory %s: %w", mountPointLib, err)
 	}
 
-	// Create the 'docker' mount point.
-	mountPointDocker := path.Join(mountPoint, "var/lib/docker")
-	sysutil.Info("Creating mount point for 'docker' at: %s", mountPointDocker)
-	_, err = sysutil.Execute(
-		execute,
-		sysutil.ModeNormal,
-		"mkdir",
-		"-p",
-		mountPointDocker,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create docker directory %s: %w", mountPointDocker, err)
+	// Create the 'docker' mount point if enabled.
+	if configData.Containers.Enabled {
+		mountPointDocker := path.Join(mountPoint, "var/lib/docker")
+		sysutil.Info("Creating mount point for 'docker' at: %s", mountPointDocker)
+		_, err = sysutil.Execute(
+			execute,
+			sysutil.ModeNormal,
+			"mkdir",
+			"-p",
+			mountPointDocker,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create docker directory %s: %w", mountPointDocker, err)
+		}
 	}
 
-	// Create the 'containers' mount point.
-	mountPointContainers := path.Join(mountPoint, "var/lib/containers")
-	sysutil.Info("Creating mount point for 'containers' at: %s", mountPointContainers)
-	_, err = sysutil.Execute(
-		execute,
-		sysutil.ModeNormal,
-		"mkdir",
-		"-p",
-		mountPointContainers,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create containers directory %s: %w", mountPointContainers, err)
+	// Create the 'containers' mount point if enabled.
+	if configData.Containers.Enabled {
+		mountPointContainers := path.Join(mountPoint, "var/lib/containers")
+		sysutil.Info("Creating mount point for 'containers' at: %s", mountPointContainers)
+		_, err = sysutil.Execute(
+			execute,
+			sysutil.ModeNormal,
+			"mkdir",
+			"-p",
+			mountPointContainers,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to create containers directory %s: %w",
+				mountPointContainers,
+				err,
+			)
+		}
+	}
+
+	// Create the 'incus' mount point if enabled.
+	if configData.Incus.Enabled {
+		mountPointIncus := path.Join(mountPoint, "var/lib/incus")
+		sysutil.Info("Creating mount point for 'incus' at: %s", mountPointIncus)
+		_, err = sysutil.Execute(
+			execute,
+			sysutil.ModeNormal,
+			"mkdir",
+			"-p",
+			mountPointIncus,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create incus directory %s: %w", mountPointIncus, err)
+		}
+	}
+
+	// Create the 'incus/storage-pools' mount point if enabled.
+	if configData.Incus.Enabled {
+		mountPointIncusStoragePools := path.Join(mountPoint, "var/lib/incus/storage-pools")
+		sysutil.Info(
+			"Creating mount point for 'incus/storage-pools' at: %s",
+			mountPointIncusStoragePools,
+		)
+		_, err = sysutil.Execute(
+			execute,
+			sysutil.ModeNormal,
+			"mkdir",
+			"-p",
+			mountPointIncusStoragePools,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to create incus/storage-pools directory %s: %w",
+				mountPointIncusStoragePools,
+				err,
+			)
+		}
 	}
 
 	// Create the 'tmp' mount point.
