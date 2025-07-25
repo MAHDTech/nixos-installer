@@ -9,7 +9,7 @@ let
 
   # Variables
   name = "nixos-installer";
-  version = "0.1.0";
+  version = "0.1.1";
 
   # Custom packages.
   nixos-installer = import ./devenv/nixos-installer.nix {
@@ -177,20 +177,26 @@ in
       description = "Runs staticcheck from the src directory";
       exec = ''
         ERR=0
-        # Filter files to only include those starting with src/
-        SRC_FILES=$(echo "$@" | xargs -n1 | grep "^src/" || true)
-        if [[ -n "$SRC_FILES" ]]; then
-          echo "Processing source files: $SRC_FILES"
-          for DIR in $(echo "$SRC_FILES" | xargs -n1 dirname | sed 's|^src/||' | sort -u); do
-            echo "DIR: $DIR"
-            staticcheck ./"$DIR"
+        # Filter files to only include .go files starting with src/
+        GO_FILES=$(echo "$@" | xargs -n1 | grep "^src/.*\.go$" || true)
+        if [[ -n "$GO_FILES" ]]; then
+          echo "Processing Go files: $GO_FILES"
+          # Extract unique directories and convert src/pkg/installer -> ./pkg/installer
+          DIRS=$(echo "$GO_FILES" | xargs -n1 dirname | sed 's|^src/|./|; s|^src$|.|' | sort -u)
+          pushd src > /dev/null
+          for DIR in $DIRS;
+          do
+            echo "Checking directory: $DIR"
+            staticcheck "$DIR"
             CODE="$?"
-            if [[ "$ERR" -eq 0 ]]; then
-               ERR="$CODE"
+            if [[ "$CODE" -ne 0 ]];
+            then
+              ERR=1
             fi
           done
+          popd > /dev/null
         else
-          echo "No source files found"
+          echo "No Go source files found"
         fi
         exit $ERR
       '';

@@ -118,6 +118,14 @@ func runPreparationPhase(execute bool, configData *config.Config) error {
 	}
 	sysutil.Success("Directories created successfully")
 
+	// Create the optional directories.
+	sysutil.Info("Creating optional directories")
+	err = createOptionalDirectories(execute, mountPoint, configData)
+	if err != nil {
+		return fmt.Errorf("failed to create optional directories: %w", err)
+	}
+	sysutil.Success("Optional directories created successfully")
+
 	// Umount all partitions on the disks.
 	sysutil.Info("Unmounting existing partitions")
 	err = unmountDisks(execute, configData)

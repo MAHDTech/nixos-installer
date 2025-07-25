@@ -166,6 +166,33 @@ func createDirectories(execute bool, mountPoint string, configData *config.Confi
 		return fmt.Errorf("failed to create lib directory %s: %w", mountPointLib, err)
 	}
 
+	// Create the 'tmp' mount point.
+	mountPointTmp := path.Join(mountPoint, "tmp")
+	sysutil.Info("Creating mount point for 'tmp' at: %s", mountPointTmp)
+	_, err = sysutil.Execute(
+		execute,
+		sysutil.ModeNormal,
+		"mkdir",
+		"-p",
+		mountPointTmp,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create tmp directory %s: %w", mountPointTmp, err)
+	}
+
+	// Log the completion of the directory structure creation.
+	sysutil.Info("Base directory structure created.")
+	return nil
+}
+
+// createOptionalDirectories creates the optional mount directories.
+// Returns an error if any directory creation fails.
+func createOptionalDirectories(execute bool, mountPoint string, configData *config.Config) error {
+
+	var err error
+
+	sysutil.Info("Creating optional mount directory structure...")
+
 	// Create the 'docker' mount point if enabled.
 	if configData.Containers.Enabled {
 		mountPointDocker := path.Join(mountPoint, "var/lib/docker")
@@ -239,20 +266,6 @@ func createDirectories(execute bool, mountPoint string, configData *config.Confi
 				err,
 			)
 		}
-	}
-
-	// Create the 'tmp' mount point.
-	mountPointTmp := path.Join(mountPoint, "tmp")
-	sysutil.Info("Creating mount point for 'tmp' at: %s", mountPointTmp)
-	_, err = sysutil.Execute(
-		execute,
-		sysutil.ModeNormal,
-		"mkdir",
-		"-p",
-		mountPointTmp,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create tmp directory %s: %w", mountPointTmp, err)
 	}
 
 	// Log the completion of the directory structure creation.
