@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -988,85 +989,102 @@ func formatPartition(
 func cleanZFSDisk(execute bool, diskPath string) error {
 	sysutil.Info("Performing thorough ZFS cleanup for disk: %s", diskPath)
 
-	// Step 1: Try to offline the disk from any active pools
-	poolInfo, err := sysutil.Execute(
+	// Step 1: Force export all existing pools to disconnect them cleanly
+	poolsOutput, err := sysutil.Execute(
 		execute,
 		sysutil.ModeStdOut,
 		"zpool",
-		"status",
-		"-P", // Physical path
+		"list",
+		"-H",
+		"-o",
+		"name",
 	)
-
-	if err == nil && poolInfo != "" {
-		// Parse the output to find if disk is part of any pools
-		diskPaths, err := sysutil.Execute(
-			execute,
-			sysutil.ModeStdOut,
-			"readlink",
-			"-f",
-			diskPath,
-		)
-		if err == nil {
-			resolvedPath := strings.TrimSpace(diskPaths)
-			baseDiskName := path.Base(resolvedPath)
-
-			// Check if disk appears in any pools
-			for _, poolLine := range strings.Split(poolInfo, "\n") {
-				if strings.Contains(poolLine, baseDiskName) {
-					// Extract pool name from the output (assuming format like "pool: zpool")
-					var poolName string
-					for _, line := range strings.Split(poolInfo, "\n") {
-						if strings.HasPrefix(line, "pool:") {
-							poolName = strings.TrimSpace(strings.TrimPrefix(line, "pool:"))
-							break
-						}
-					}
-
-					if poolName != "" {
-						sysutil.Info(
-							"Found disk %s in pool %s, trying to offline",
-							baseDiskName,
-							poolName,
-						)
-
-						// Try to offline the disk
-						_, err = sysutil.Execute(
-							execute,
-							sysutil.ModeNormal,
-							"zpool",
-							"offline",
-							poolName,
-							resolvedPath,
-						)
-						if err != nil {
-							sysutil.Warn(
-								"Could not offline disk %s from pool %s: %v",
-								baseDiskName,
-								poolName,
-								err,
-							)
-						}
-
-						// Try to export the pool
-						_, err = sysutil.Execute(
-							execute,
-							sysutil.ModeNormal,
-							"zpool",
-							"export",
-							"-f",
-							poolName,
-						)
-						if err != nil {
-							sysutil.Warn("Could not export pool %s: %v", poolName, err)
-						}
-					}
-					break
+	if err == nil && poolsOutput != "" {
+		pools := strings.Split(strings.TrimSpace(poolsOutput), "\n")
+		for _, pool := range pools {
+			if pool == "" {
+				continue
+			}
+			sysutil.Info("Force exporting pool: %s", pool)
+			stderr, exportErr := sysutil.Execute(
+				execute,
+				sysutil.ModeStdErr,
+				"zpool",
+				"export",
+				"-f",
+				pool,
+			)
+			if exportErr != nil {
+				if stderr != "" {
+					sysutil.Warn("Failed to export pool %s: %s", pool, strings.TrimSpace(stderr))
+				} else {
+					sysutil.Warn("Failed to export pool %s: %v", pool, exportErr)
 				}
 			}
 		}
+	} else if err != nil {
+		sysutil.Warn("Failed to list pools for export: %v", err)
 	}
 
-	// Step 2: Try the ZFS labelclear command
+	// Step 2: Wipe ZFS labels on this specific disk using dd
+	// Wipe beginning of the disk (first 1MB to cover primary label)
+	const wipeSize = 2048 // sectors of 512 bytes = 1MB
+	if execute {
+		sysutil.Info("Wiping beginning of disk %s", diskPath)
+		_, err = sysutil.Execute(
+			true, // always execute dd in real mode
+			sysutil.ModeNormal,
+			"dd",
+			"if=/dev/zero",
+			"of="+diskPath,
+			"bs=512",
+			"count="+strconv.Itoa(wipeSize),
+			"conv=fsync",
+		)
+		if err != nil {
+			sysutil.Warn("Failed to wipe beginning of %s: %v", diskPath, err)
+		}
+
+		// Get disk size in 512-byte sectors
+		sizeOutput, err := sysutil.Execute(
+			true,
+			sysutil.ModeStdOut,
+			"blockdev",
+			"--getsz",
+			diskPath,
+		)
+		if err == nil {
+			sizeStr := strings.TrimSpace(sizeOutput)
+			size, parseErr := strconv.ParseInt(sizeStr, 10, 64)
+			if parseErr == nil && size > wipeSize {
+				seek := size - wipeSize
+				sysutil.Info("Wiping end of disk %s at seek %d", diskPath, seek)
+				_, err = sysutil.Execute(
+					true,
+					sysutil.ModeNormal,
+					"dd",
+					"if=/dev/zero",
+					"of="+diskPath,
+					"bs=512",
+					"seek="+strconv.FormatInt(seek, 10),
+					"count="+strconv.Itoa(wipeSize),
+					"conv=fsync",
+				)
+				if err != nil {
+					sysutil.Warn("Failed to wipe end of %s: %v", diskPath, err)
+				}
+			} else if parseErr != nil {
+				sysutil.Warn("Failed to parse disk size '%s': %v", sizeStr, parseErr)
+			}
+		} else {
+			sysutil.Warn("Failed to get disk size for %s: %v", diskPath, err)
+		}
+	} else {
+		sysutil.Info("Would wipe labels on %s using dd (dry-run)", diskPath)
+	}
+
+	// Step 3: Attempt labelclear as a final cleanup
+	sysutil.Info("Running labelclear on %s", diskPath)
 	stderr, err := sysutil.Execute(
 		execute,
 		sysutil.ModeStdErr,
@@ -1077,67 +1095,16 @@ func cleanZFSDisk(execute bool, diskPath string) error {
 	)
 	if err != nil {
 		if stderr != "" {
-			sysutil.Warn("zpool labelclear failed for %s: %s", diskPath, strings.TrimSpace(stderr))
+			sysutil.Warn("labelclear failed for %s: %s", diskPath, strings.TrimSpace(stderr))
 		} else {
-			sysutil.Warn("zpool labelclear failed for %s: %v", diskPath, err)
+			sysutil.Warn("labelclear failed for %s: %v", diskPath, err)
 		}
 	}
 
-	// Step 3: Force destroy any remaining pools on this disk
-	// This is a more aggressive approach
-	_, err = sysutil.Execute(
-		execute,
-		sysutil.ModeStdOut,
-		"zpool",
-		"import",
-		"-d",
-		path.Dir(diskPath),
-	)
-	if err == nil {
-		// If there are pools, try to destroy them
-		_, err = sysutil.Execute(
-			execute,
-			sysutil.ModeNormal,
-			"zpool",
-			"import",
-			"-d",
-			path.Dir(diskPath),
-			"-f",
-			"-N",
-			"-a",
-		)
-		if err != nil {
-			sysutil.Warn("Failed to import pools for destruction from %s: %v", diskPath, err)
-		} else {
-			// Get pool names
-			poolNames, err := sysutil.Execute(
-				execute,
-				sysutil.ModeStdOut,
-				"zpool",
-				"list",
-				"-H",
-				"-o",
-				"name",
-			)
-			if err == nil {
-				for _, pool := range strings.Split(strings.TrimSpace(poolNames), "\n") {
-					if pool != "" {
-						sysutil.Info("Destroying imported pool: %s", pool)
-						_, err = sysutil.Execute(
-							execute,
-							sysutil.ModeNormal,
-							"zpool",
-							"destroy",
-							"-f",
-							pool,
-						)
-						if err != nil {
-							sysutil.Warn("Failed to destroy pool %s: %v", pool, err)
-						}
-					}
-				}
-			}
-		}
+	// Step 4: Settle udev to ensure changes are recognized
+	_, err = sysutil.Execute(execute, sysutil.ModeNormal, "udevadm", "settle")
+	if err != nil {
+		sysutil.Warn("udevadm settle failed after cleanup: %v", err)
 	}
 
 	return nil
