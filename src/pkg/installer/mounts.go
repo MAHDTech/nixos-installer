@@ -53,8 +53,8 @@ func mountFileSystems(
 		return err
 	}
 
-	// Mount container filesystems
-	if err := mountContainerFilesystems(execute, zfsDatasetPathDocker, zfsDatasetPathContainers, zfsDatasetPathIncus, zfsDatasetPathIncusStoragePools); err != nil {
+	// Mount optional container filesystems
+	if err := mountContainerFilesystems(execute, configData, zfsDatasetPathDocker, zfsDatasetPathContainers, zfsDatasetPathIncus, zfsDatasetPathIncusStoragePools); err != nil {
 		return err
 	}
 
@@ -181,33 +181,42 @@ func mountSystemFilesystems(execute bool, zfsDatasetPathVar, zfsDatasetPathLib s
 	return nil
 }
 
-// mountContainerFilesystems mounts container-related filesystems
+// mountContainerFilesystems mounts optional container-related filesystems
 func mountContainerFilesystems(
 	execute bool,
+	configData *config.Config,
 	zfsDatasetPathDocker, zfsDatasetPathContainers, zfsDatasetPathIncus, zfsDatasetPathIncusStoragePools string,
 ) error {
-	// Mount the docker dataset
-	err := mountZFSDataset(execute, zfsDatasetPathDocker)
-	if err != nil {
-		return fmt.Errorf("failed to mount docker filesystem: %w", err)
+	// Mount the docker dataset if enabled.
+	if configData.Containers.Enabled {
+		err := mountZFSDataset(execute, zfsDatasetPathDocker)
+		if err != nil {
+			return fmt.Errorf("failed to mount docker filesystem: %w", err)
+		}
 	}
 
-	// Mount the containers dataset
-	err = mountZFSDataset(execute, zfsDatasetPathContainers)
-	if err != nil {
-		return fmt.Errorf("failed to mount containers filesystem: %w", err)
+	// Mount the containers dataset if enabled.
+	if configData.Containers.Enabled {
+		err := mountZFSDataset(execute, zfsDatasetPathContainers)
+		if err != nil {
+			return fmt.Errorf("failed to mount containers filesystem: %w", err)
+		}
 	}
 
-	// Mount the incus dataset
-	err = mountZFSDataset(execute, zfsDatasetPathIncus)
-	if err != nil {
-		return fmt.Errorf("failed to mount incus filesystem: %w", err)
+	// Mount the incus dataset if enabled.
+	if configData.Incus.Enabled {
+		err := mountZFSDataset(execute, zfsDatasetPathIncus)
+		if err != nil {
+			return fmt.Errorf("failed to mount incus filesystem: %w", err)
+		}
 	}
 
-	// Mount the incus storage pools dataset
-	err = mountZFSDataset(execute, zfsDatasetPathIncusStoragePools)
-	if err != nil {
-		return fmt.Errorf("failed to mount incus storage pools filesystem: %w", err)
+	// Mount the incus storage pools dataset if enabled.
+	if configData.Incus.Enabled {
+		err := mountZFSDataset(execute, zfsDatasetPathIncusStoragePools)
+		if err != nil {
+			return fmt.Errorf("failed to mount incus storage pools filesystem: %w", err)
+		}
 	}
 
 	return nil
