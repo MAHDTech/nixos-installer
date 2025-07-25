@@ -67,7 +67,7 @@ swap:
 
 # Settings for Containers/Docker
 containers:
-  enabled: true
+  enabled: false
 
 # Settings for Incus.
 incus:
