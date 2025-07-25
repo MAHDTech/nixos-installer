@@ -117,7 +117,12 @@ func main() {
 		return
 	}
 
-	sysutil.Info("Starting NixOS Installer...")
+	sysutil.Info(
+		"Starting NixOS Installer version: %s, commit: %s, built: %s",
+		Version,
+		CommitSHA,
+		BuildDate,
+	)
 
 	// Log execution mode
 	if *execute {
