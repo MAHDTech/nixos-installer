@@ -9,7 +9,7 @@ let
 
   # Variables
   name = "nixos-installer";
-  version = "0.1.0";
+  version = "0.1.1";
 
   # Custom packages.
   nixos-installer = import ./devenv/nixos-installer.nix {
@@ -176,6 +176,7 @@ in
       package = pkgs.bash;
       description = "Runs staticcheck from the src directory";
       exec = ''
+        pushd src > /dev/null
         ERR=0
         # Filter files to only include those starting with src/
         SRC_FILES=$(echo "$@" | xargs -n1 | grep "^src/" || true)
@@ -193,6 +194,7 @@ in
           echo "No source files found"
         fi
         exit $ERR
+        popd > /dev/null
       '';
     };
 
