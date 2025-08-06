@@ -245,24 +245,67 @@ func createOptionalDirectories(execute bool, mountPoint string, configData *conf
 		}
 	}
 
-	// Create the 'incus/storage-pools' mount point if enabled.
+	// Create the 'linstor' data mount point if incus is enabled.
 	if configData.Incus.Enabled {
-		mountPointIncusStoragePools := path.Join(mountPoint, "var/lib/incus/storage-pools")
+		mountPointLinstorData := path.Join(mountPoint, "var/lib/linstor")
+		sysutil.Info("Creating mount point for 'linstor' data at: %s", mountPointLinstorData)
+		_, err = sysutil.Execute(
+			execute,
+			sysutil.ModeNormal,
+			"mkdir",
+			"-p",
+			mountPointLinstorData,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to create linstor data directory %s: %w",
+				mountPointLinstorData,
+				err,
+			)
+		}
+	}
+
+	// Create the 'linstor' metadata mount point if incus is enabled.
+	if configData.Incus.Enabled {
+		mountPointLinstorMetadata := path.Join(mountPoint, "var/lib/linstor.d")
 		sysutil.Info(
-			"Creating mount point for 'incus/storage-pools' at: %s",
-			mountPointIncusStoragePools,
+			"Creating mount point for 'linstor' metadata at: %s",
+			mountPointLinstorMetadata,
 		)
 		_, err = sysutil.Execute(
 			execute,
 			sysutil.ModeNormal,
 			"mkdir",
 			"-p",
-			mountPointIncusStoragePools,
+			mountPointLinstorMetadata,
 		)
 		if err != nil {
 			return fmt.Errorf(
-				"failed to create incus/storage-pools directory %s: %w",
-				mountPointIncusStoragePools,
+				"failed to create linstor metadata directory %s: %w",
+				mountPointLinstorMetadata,
+				err,
+			)
+		}
+	}
+
+	// Create the 'linstor' storage pool mount point if incus is enabled.
+	if configData.Incus.Enabled {
+		mountPointLinstorStoragePool := path.Join(mountPoint, "var/lib/linstor/storage-pool")
+		sysutil.Info(
+			"Creating mount point for 'linstor' storage pool at: %s",
+			mountPointLinstorStoragePool,
+		)
+		_, err = sysutil.Execute(
+			execute,
+			sysutil.ModeNormal,
+			"mkdir",
+			"-p",
+			mountPointLinstorStoragePool,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to create linstor storage pool directory %s: %w",
+				mountPointLinstorStoragePool,
 				err,
 			)
 		}

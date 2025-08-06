@@ -706,24 +706,62 @@ func createIncusDatasets(execute bool, zfsPoolName string) error {
 		)
 	}
 
-	// --- Var/Lib/Incus/Storage-Pools Dataset ---
-	zfsDatasetPathIncusStoragePools := path.Join(zfsPoolName, zfsDatasetIncusStoragePools)
-	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathIncusStoragePools)
+	// --- Var/Lib/Linstor Dataset ---
+	zfsDatasetPathLinstorData := path.Join(zfsPoolName, zfsDatasetLinstorData)
+	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathLinstorData)
 	_, err = sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
 		"zfs",
 		"create",
 		"-o", "canmount=on",
-		"-o", "mountpoint=/var/lib/incus/storage-pools",
-		"-o", "devices=on", // Enable devices for Incus storage pools
-		"-o", "com.sun:auto-snapshot=false",
-		zfsDatasetPathIncusStoragePools,
+		"-o", "mountpoint=/var/lib/linstor",
+		zfsDatasetPathLinstorData,
 	)
 	if err != nil {
 		return fmt.Errorf(
-			"failed to create incus storage pools ZFS dataset %s: %w",
-			zfsDatasetPathIncusStoragePools,
+			"failed to create linstor data ZFS dataset %s: %w",
+			zfsDatasetPathLinstorData,
+			err,
+		)
+	}
+
+	// --- Var/Lib/Linstor Metadata Dataset ---
+	zfsDatasetPathLinstorMetadata := path.Join(zfsPoolName, zfsDatasetLinstorMetadata)
+	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathLinstorMetadata)
+	_, err = sysutil.Execute(
+		execute,
+		sysutil.ModeNormal,
+		"zfs",
+		"create",
+		"-o", "canmount=on",
+		"-o", "mountpoint=/var/lib/linstor.d",
+		zfsDatasetPathLinstorMetadata,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to create linstor metadata ZFS dataset %s: %w",
+			zfsDatasetPathLinstorMetadata,
+			err,
+		)
+	}
+
+	// --- Var/Lib/Linstor Storage Pool Dataset ---
+	zfsDatasetPathLinstorStoragePool := path.Join(zfsPoolName, zfsDatasetLinstorStoragePool)
+	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathLinstorStoragePool)
+	_, err = sysutil.Execute(
+		execute,
+		sysutil.ModeNormal,
+		"zfs",
+		"create",
+		"-o", "canmount=on",
+		"-o", "mountpoint=/var/lib/linstor/storage-pool",
+		zfsDatasetPathLinstorStoragePool,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to create linstor storage pool ZFS dataset %s: %w",
+			zfsDatasetPathLinstorStoragePool,
 			err,
 		)
 	}
