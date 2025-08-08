@@ -756,6 +756,8 @@ func createIncusDatasets(execute bool, zfsPoolName string) error {
 		"create",
 		"-o", "canmount=on",
 		"-o", "mountpoint=/var/lib/linstor/storage-pool",
+		"-o", "com.sun:auto-snapshot=false",
+		"-o", "volmode=dev", // Enable dev mode for Linstor storage pool
 		zfsDatasetPathLinstorStoragePool,
 	)
 	if err != nil {
