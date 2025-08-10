@@ -33,6 +33,7 @@ func mountFileSystems(
 	zfsDatasetPathLinstorData := path.Join(zfsPoolName, zfsDatasetLinstorData)
 	zfsDatasetPathLinstorMetadata := path.Join(zfsPoolName, zfsDatasetLinstorMetadata)
 	zfsDatasetPathLinstorStoragePool := path.Join(zfsPoolName, zfsDatasetLinstorStoragePool)
+	zfsDatasetPathLinstorDRBD := path.Join(zfsPoolName, zfsDatasetLinstorDRBD)
 	zfsDatasetPathTmp := path.Join(zfsPoolName, zfsDatasetTmp)
 
 	// Mount core filesystems
@@ -65,6 +66,7 @@ func mountFileSystems(
 		zfsDatasetPathLinstorData,
 		zfsDatasetPathLinstorMetadata,
 		zfsDatasetPathLinstorStoragePool,
+		zfsDatasetPathLinstorDRBD,
 	); err != nil {
 		return err
 	}
@@ -202,6 +204,7 @@ func mountContainerFilesystems(
 	zfsDatasetPathLinstorData string,
 	zfsDatasetPathLinstorMetadata string,
 	zfsDatasetPathLinstorStoragePool string,
+	zfsDatasetPathLinstorDRBD string,
 ) error {
 	// Mount the docker dataset if enabled.
 	if configData.Containers.Enabled {
@@ -248,6 +251,14 @@ func mountContainerFilesystems(
 		err := mountZFSDataset(execute, zfsDatasetPathLinstorStoragePool)
 		if err != nil {
 			return fmt.Errorf("failed to mount linstor storage pool filesystem: %w", err)
+		}
+	}
+
+	// Mount the linstor drbd dataset if incus is enabled.
+	if configData.Incus.Enabled {
+		err := mountZFSDataset(execute, zfsDatasetPathLinstorDRBD)
+		if err != nil {
+			return fmt.Errorf("failed to mount linstor drbd filesystem: %w", err)
 		}
 	}
 

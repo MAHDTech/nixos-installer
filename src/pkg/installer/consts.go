@@ -19,6 +19,7 @@ const (
 	zfsDatasetLinstorData        = "var/lib/linstor"
 	zfsDatasetLinstorMetadata    = "var/lib/linstor.d"
 	zfsDatasetLinstorStoragePool = "var/lib/linstor/storage-pool"
+	zfsDatasetLinstorDRBD        = "var/lib/linstor/drbd"
 )
 
 // The names of the tools that are required.

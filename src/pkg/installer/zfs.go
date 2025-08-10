@@ -768,5 +768,26 @@ func createIncusDatasets(execute bool, zfsPoolName string) error {
 		)
 	}
 
+	// --- Var/Lib/Linstor DRBD Dataset ---
+	zfsDatasetPathLinstorDRBD := path.Join(zfsPoolName, zfsDatasetLinstorDRBD)
+	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathLinstorDRBD)
+	_, err = sysutil.Execute(
+		execute,
+		sysutil.ModeNormal,
+		"zfs",
+		"create",
+		"-o", "canmount=on",
+		"-o", "mountpoint=/var/lib/linstor/drbd",
+		"-o", "com.sun:auto-snapshot=false",
+		zfsDatasetPathLinstorDRBD,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to create linstor drbd ZFS dataset %s: %w",
+			zfsDatasetPathLinstorDRBD,
+			err,
+		)
+	}
+
 	return nil
 }
