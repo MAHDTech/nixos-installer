@@ -747,44 +747,44 @@ func createIncusDatasets(execute bool, zfsPoolName string) error {
 	}
 
 	// --- Var/Lib/Linstor Storage Pool Dataset ---
-	zfsDatasetPathLinstorStoragePool := path.Join(zfsPoolName, zfsDatasetLinstorStoragePool)
-	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathLinstorStoragePool)
+	zfsDatasetPathStoragePool := path.Join(zfsPoolName, zfsDatasetStoragePool)
+	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathStoragePool)
 	_, err = sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
 		"zfs",
 		"create",
 		"-o", "canmount=on",
-		"-o", "mountpoint=/var/lib/linstor/storage-pool",
+		"-o", "mountpoint=none",
 		"-o", "com.sun:auto-snapshot=false",
 		"-o", "volmode=dev", // Enable dev mode for Linstor storage pool
-		zfsDatasetPathLinstorStoragePool,
+		zfsDatasetPathStoragePool,
 	)
 	if err != nil {
 		return fmt.Errorf(
 			"failed to create linstor storage pool ZFS dataset %s: %w",
-			zfsDatasetPathLinstorStoragePool,
+			zfsDatasetPathStoragePool,
 			err,
 		)
 	}
 
 	// --- Var/Lib/Linstor DRBD Dataset ---
-	zfsDatasetPathLinstorDRBD := path.Join(zfsPoolName, zfsDatasetLinstorDRBD)
-	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathLinstorDRBD)
+	zfsDatasetPathDRBD := path.Join(zfsPoolName, zfsDatasetDRBD)
+	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathDRBD)
 	_, err = sysutil.Execute(
 		execute,
 		sysutil.ModeNormal,
 		"zfs",
 		"create",
 		"-o", "canmount=on",
-		"-o", "mountpoint=/var/lib/linstor/drbd",
+		"-o", "mountpoint=/var/lib/drbd",
 		"-o", "com.sun:auto-snapshot=false",
-		zfsDatasetPathLinstorDRBD,
+		zfsDatasetPathDRBD,
 	)
 	if err != nil {
 		return fmt.Errorf(
-			"failed to create linstor drbd ZFS dataset %s: %w",
-			zfsDatasetPathLinstorDRBD,
+			"failed to create drbd ZFS dataset %s: %w",
+			zfsDatasetPathDRBD,
 			err,
 		)
 	}

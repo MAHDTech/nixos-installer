@@ -3,10 +3,10 @@
     "devenv": {
       "locked": {
         "dir": "src/modules",
-        "lastModified": 1753386188,
+        "lastModified": 1755039979,
         "owner": "cachix",
         "repo": "devenv",
-        "rev": "a19c43648f108256e442e46dc32d4eee57c71ac3",
+        "rev": "63db0a32cd767c2a9089fbaf24b0bb91c64c0652",
         "type": "github"
       },
       "original": {
@@ -57,10 +57,10 @@
         ]
       },
       "locked": {
-        "lastModified": 1750779888,
+        "lastModified": 1754416808,
         "owner": "cachix",
         "repo": "git-hooks.nix",
-        "rev": "16ec914f6fb6f599ce988427d9d94efddf25fe6d",
+        "rev": "9c52372878df6911f9afc1e2a1391f55e4dfc864",
         "type": "github"
       },
       "original": {
@@ -95,10 +95,10 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1753096219,
+        "lastModified": 1754078208,
         "owner": "nix-community",
         "repo": "gomod2nix",
-        "rev": "be828766411cad04c194c8f714d46aa2b2596362",
+        "rev": "7f963246a71626c7fc70b431a315c4388a0c95cf",
         "type": "github"
       },
       "original": {
@@ -142,10 +142,10 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1753411696,
+        "lastModified": 1755042551,
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "9cdcca1d040fd9bcf6c703f2baa8e5ea4b63ac6f",
+        "rev": "e4b54494cba4c82005d5fe3c0329a8f66fbfcff7",
         "type": "github"
       },
       "original": {
@@ -157,10 +157,10 @@
     },
     "nixpkgs-unstable": {
       "locked": {
-        "lastModified": 1753369216,
+        "lastModified": 1754990257,
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "b74a30dbc0a72e20df07d43109339f780b439291",
+        "rev": "372d9eeeafa5b15913201e2b92e8e539ac7c64d1",
         "type": "github"
       },
       "original": {
@@ -172,10 +172,10 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1750441195,
+        "lastModified": 1754299112,
         "owner": "cachix",
         "repo": "devenv-nixpkgs",
-        "rev": "0ceffe312871b443929ff3006960d29b120dc627",
+        "rev": "16c21c9f5c6fb978466e91182a248dd8ca1112ac",
         "type": "github"
       },
       "original": {
