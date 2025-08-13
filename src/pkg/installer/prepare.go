@@ -290,22 +290,22 @@ func createOptionalDirectories(execute bool, mountPoint string, configData *conf
 
 	// Create the 'linstor' storage pool mount point if incus is enabled.
 	if configData.Incus.Enabled {
-		mountPointLinstorStoragePool := path.Join(mountPoint, "var/lib/linstor/storage-pool")
+		mountPointStoragePool := path.Join(mountPoint, "var/lib/storage-pools")
 		sysutil.Info(
 			"Creating mount point for 'linstor' storage pool at: %s",
-			mountPointLinstorStoragePool,
+			mountPointStoragePool,
 		)
 		_, err = sysutil.Execute(
 			execute,
 			sysutil.ModeNormal,
 			"mkdir",
 			"-p",
-			mountPointLinstorStoragePool,
+			mountPointStoragePool,
 		)
 		if err != nil {
 			return fmt.Errorf(
 				"failed to create linstor storage pool directory %s: %w",
-				mountPointLinstorStoragePool,
+				mountPointStoragePool,
 				err,
 			)
 		}

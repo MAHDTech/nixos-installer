@@ -29,10 +29,11 @@ func mountFileSystems(
 	zfsDatasetPathLib := path.Join(zfsPoolName, zfsDatasetLib)
 	zfsDatasetPathDocker := path.Join(zfsPoolName, zfsDatasetDocker)
 	zfsDatasetPathContainers := path.Join(zfsPoolName, zfsDatasetContainers)
+	zfsDatasetPathDRBD := path.Join(zfsPoolName, zfsDatasetDRBD)
 	zfsDatasetPathIncus := path.Join(zfsPoolName, zfsDatasetIncus)
 	zfsDatasetPathLinstorData := path.Join(zfsPoolName, zfsDatasetLinstorData)
 	zfsDatasetPathLinstorMetadata := path.Join(zfsPoolName, zfsDatasetLinstorMetadata)
-	zfsDatasetPathLinstorStoragePool := path.Join(zfsPoolName, zfsDatasetLinstorStoragePool)
+	zfsDatasetPathStoragePool := path.Join(zfsPoolName, zfsDatasetStoragePool)
 	zfsDatasetPathTmp := path.Join(zfsPoolName, zfsDatasetTmp)
 
 	// Mount core filesystems
@@ -59,12 +60,13 @@ func mountFileSystems(
 	if err := mountContainerFilesystems(
 		execute,
 		configData,
-		zfsDatasetPathDocker,
 		zfsDatasetPathContainers,
+		zfsDatasetPathDRBD,
+		zfsDatasetPathDocker,
 		zfsDatasetPathIncus,
 		zfsDatasetPathLinstorData,
 		zfsDatasetPathLinstorMetadata,
-		zfsDatasetPathLinstorStoragePool,
+		zfsDatasetPathStoragePool,
 	); err != nil {
 		return err
 	}
@@ -196,12 +198,13 @@ func mountSystemFilesystems(execute bool, zfsDatasetPathVar, zfsDatasetPathLib s
 func mountContainerFilesystems(
 	execute bool,
 	configData *config.Config,
-	zfsDatasetPathDocker string,
 	zfsDatasetPathContainers string,
+	zfsDatasetPathDRBD string,
+	zfsDatasetPathDocker string,
 	zfsDatasetPathIncus string,
 	zfsDatasetPathLinstorData string,
 	zfsDatasetPathLinstorMetadata string,
-	zfsDatasetPathLinstorStoragePool string,
+	zfsDatasetPathStoragePool string,
 ) error {
 	// Mount the docker dataset if enabled.
 	if configData.Containers.Enabled {
@@ -245,9 +248,17 @@ func mountContainerFilesystems(
 
 	// Mount the linstor storage pool dataset if incus is enabled.
 	if configData.Incus.Enabled {
-		err := mountZFSDataset(execute, zfsDatasetPathLinstorStoragePool)
+		err := mountZFSDataset(execute, zfsDatasetPathStoragePool)
 		if err != nil {
 			return fmt.Errorf("failed to mount linstor storage pool filesystem: %w", err)
+		}
+	}
+
+	// Mount drbd dataset if incus is enabled.
+	if configData.Incus.Enabled {
+		err := mountZFSDataset(execute, zfsDatasetPathDRBD)
+		if err != nil {
+			return fmt.Errorf("failed to mount drbd filesystem: %w", err)
 		}
 	}
 
