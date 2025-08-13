@@ -768,7 +768,7 @@ func createIncusDatasets(execute bool, zfsPoolName string) error {
 		)
 	}
 
-	// --- Var/Lib/Linstor DRBD Dataset ---
+	// --- Var/Lib/Drbd DRBD Dataset ---
 	zfsDatasetPathDRBD := path.Join(zfsPoolName, zfsDatasetDRBD)
 	sysutil.Info("Creating ZFS dataset: %s", zfsDatasetPathDRBD)
 	_, err = sysutil.Execute(
