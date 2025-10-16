@@ -92,7 +92,9 @@ in
   };
 
   git-hooks = {
-    excludes = [ ];
+    excludes = [
+      "src/vendor/"
+    ];
     hooks = {
       beautysh.enable = false;
       actionlint.enable = true;

@@ -94,7 +94,7 @@ function detect_os() {
 	return 0
 }
 
-# shellcheck disable=SC2317
+# shellcheck disable=SC2317,SC2329
 function cleanup() {
 	msg "INFO" "🧹 Cleaning up temporary directory"
 	rm -rf "${TMP_DIR}" || {
