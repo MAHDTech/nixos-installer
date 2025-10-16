@@ -84,7 +84,7 @@ jobs:
             echo "run_nancy=false" >> "$GITHUB_OUTPUT"
           fi
           popd
-          # Condition 2. We need OSS Index username and password.
+          # Condition 2. We need OSS Index username and token.
           if [ "${{ vars.OSS_INDEX_USERNAME }}" != '' ] && [ "${{ secrets.OSS_INDEX_TOKEN }}" != '' ];
           then
             echo "🔍 OSS Index username and token present, running Nancy."
@@ -101,7 +101,7 @@ jobs:
         with:
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           nancyVersion: latest
-          nancyCommand: ->
+          nancyCommand: <-
             sleuth
             --username ${{ vars.OSS_INDEX_USERNAME }}
             --token ${{ secrets.OSS_INDEX_TOKEN }}
