@@ -152,8 +152,15 @@ in
   starship.enable = true;
 
   enterTest = ''
-    echo "Running tests"
+    echo -e "\nSTART: Running tests"
+
+    echo -e "\nTEST: Show git version"
     git --version | grep --color=auto "${pkgs.git.version}"
+
+    echo -e "\nTEST: Show nix-installer version"
+    nixos-installer --version
+
+    echo -e "\nEND: Running tests"
   '';
 
   scripts = {
