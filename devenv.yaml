@@ -2,9 +2,8 @@
 # yaml-language-server: $schema=https://devenv.sh/devenv.schema.json
 inputs:
   nixpkgs:
-    url: github:cachix/devenv-nixpkgs/rolling
-  nixpkgs-unstable:
-    url: github:nixos/nixpkgs/nixpkgs-unstable
+    #url: github:cachix/devenv-nixpkgs/rolling
+    url: github:cachix/devenv-nixpkgs/bump-rolling
   nix2container:
     url: github:nlewo/nix2container
     inputs:

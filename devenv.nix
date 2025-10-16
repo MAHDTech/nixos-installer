@@ -2,7 +2,6 @@
   pkgs,
   config,
   lib,
-  inputs,
   ...
 }:
 let
@@ -19,16 +18,6 @@ let
     inherit lib;
     inherit pkgs;
   };
-
-  # All available unstable packages.
-  pkgsUnstable = import inputs.nixpkgs-unstable {
-    config.allowUnfree = true;
-  };
-
-  # Installed unstable packages.
-  unstablePackages = with pkgsUnstable; [
-    #golangci-lint
-  ];
 
   # Common stable packages.
   commonPackages = with pkgs; [
@@ -74,7 +63,6 @@ in
 
   packages =
     commonPackages
-    ++ unstablePackages
     ++ lib.optionals (!config.container.isBuilding || config.name == "devenv") devPackages;
 
   enterShell = ''
@@ -104,15 +92,11 @@ in
   };
 
   git-hooks = {
-    excludes = [
-      ".cache"
-      ".devenv"
-      ".direnv"
-      "src/vendor"
-    ];
+    excludes = [ ];
     hooks = {
       beautysh.enable = false;
       actionlint.enable = true;
+      action-validator.enable = true;
       check-merge-conflicts.enable = true;
       check-shebang-scripts-are-executable.enable = true;
       check-symlinks.enable = true;
