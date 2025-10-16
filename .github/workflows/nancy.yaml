@@ -85,7 +85,7 @@ jobs:
           fi
           popd
           # Condition 2. We need OSS Index username and password.
-          if [ "${{ secrets.OSS_INDEX_USERNAME }}" != '' ] && [ "${{ secrets.OSS_INDEX_TOKEN }}" != '' ];
+          if [ "${{ vars.OSS_INDEX_USERNAME }}" != '' ] && [ "${{ secrets.OSS_INDEX_TOKEN }}" != '' ];
           then
             echo "🔍 OSS Index username and token present, running Nancy."
             echo "run_nancy=true" >> "$GITHUB_OUTPUT"
