@@ -101,7 +101,7 @@ jobs:
         with:
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           nancyVersion: latest
-          nancyCommand: <-
+          nancyCommand: >-
             sleuth
             --username ${{ vars.OSS_INDEX_USERNAME }}
             --token ${{ secrets.OSS_INDEX_TOKEN }}
