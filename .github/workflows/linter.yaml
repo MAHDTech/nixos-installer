@@ -43,7 +43,7 @@ jobs:
     steps:
       - id: checkout_repository
         name: Checkout repository with all history and tags
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         env:
           GITHUB_TOKEN: ${{ secrets.SUPER_LINTER_TOKEN }}
         with:
