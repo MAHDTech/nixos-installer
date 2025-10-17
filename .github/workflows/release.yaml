@@ -71,7 +71,7 @@ jobs:
 
       - id: checkout_repository
         name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           lfs: false
           submodules: none
@@ -119,7 +119,7 @@ jobs:
           ARTIFACT_FILE_1="${{ env.ARTIFACT_PATH }}/bin/${{ env.REPO_NAME }}"
           ARTIFACT_FILE_2="${{ env.ARTIFACT_PATH }}/bin/${{ matrix.goos }}_${{ matrix.goarch }}/${{ env.REPO_NAME }}"
 
-          mkdir -p artifacts          
+          mkdir -p artifacts
 
           if [[ -f "${ARTIFACT_FILE_1}" ]];
           then
@@ -185,7 +185,7 @@ jobs:
 
       - id: checkout_repository
         name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           lfs: false
           submodules: none
@@ -303,7 +303,7 @@ jobs:
 
       - id: create_release
         name: Create GitHub release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         if: steps.check_version_bump.outputs.CREATE_RELEASE == 'true'
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -426,7 +426,7 @@ jobs:
     steps:
       - id: checkout_repository
         name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           lfs: false
           submodules: none

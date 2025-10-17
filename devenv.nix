@@ -2,14 +2,13 @@
   pkgs,
   config,
   lib,
-  inputs,
   ...
 }:
 let
 
   # Variables
   name = "nixos-installer";
-  version = "0.1.5";
+  version = "0.1.6";
 
   # Custom packages.
   nixos-installer = import ./devenv/nixos-installer.nix {
@@ -19,16 +18,6 @@ let
     inherit lib;
     inherit pkgs;
   };
-
-  # All available unstable packages.
-  pkgsUnstable = import inputs.nixpkgs-unstable {
-    config.allowUnfree = true;
-  };
-
-  # Installed unstable packages.
-  unstablePackages = with pkgsUnstable; [
-    #golangci-lint
-  ];
 
   # Common stable packages.
   commonPackages = with pkgs; [
@@ -74,7 +63,6 @@ in
 
   packages =
     commonPackages
-    ++ unstablePackages
     ++ lib.optionals (!config.container.isBuilding || config.name == "devenv") devPackages;
 
   enterShell = ''
@@ -105,14 +93,12 @@ in
 
   git-hooks = {
     excludes = [
-      ".cache"
-      ".devenv"
-      ".direnv"
-      "src/vendor"
+      "src/vendor/"
     ];
     hooks = {
       beautysh.enable = false;
       actionlint.enable = true;
+      action-validator.enable = true;
       check-merge-conflicts.enable = true;
       check-shebang-scripts-are-executable.enable = true;
       check-symlinks.enable = true;
@@ -166,8 +152,15 @@ in
   starship.enable = true;
 
   enterTest = ''
-    echo "Running tests"
+    echo -e "\nSTART: Running tests"
+
+    echo -e "\nTEST: Show git version"
     git --version | grep --color=auto "${pkgs.git.version}"
+
+    echo -e "\nTEST: Show nix-installer version"
+    nixos-installer --version
+
+    echo -e "\nEND: Running tests"
   '';
 
   scripts = {

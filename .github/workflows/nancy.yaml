@@ -63,16 +63,17 @@ jobs:
     steps:
       - id: checkout_repository
         name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           lfs: false
           submodules: recursive
 
-      - id: test_go_sum
-        name: Test for go.sum
+      - id: check_nancy
+        name: Check for Nancy run conditions
         shell: bash
         run: |
-          cd ${{ env.GOHOME }}
+          # Condition 1. We need a go.sum file.
+          pushd ${{ env.GOHOME }}
           if [ -f "go.sum" ];
           then
             echo "🔍 go.sum file present, running Nancy."
@@ -82,12 +83,26 @@ jobs:
             echo "🔍 No go.sum file present, skipping Nancy."
             echo "run_nancy=false" >> "$GITHUB_OUTPUT"
           fi
+          popd
+          # Condition 2. We need OSS Index username and token.
+          if [ "${{ vars.OSS_INDEX_USERNAME }}" != '' ] && [ "${{ secrets.OSS_INDEX_TOKEN }}" != '' ];
+          then
+            echo "🔍 OSS Index username and token present, running Nancy."
+            echo "run_nancy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "🔍 OSS Index username or token missing, skipping Nancy."
+            echo "run_nancy=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - id: run_nancy
         name: Run Nancy
-        if: ${{ steps.test_go_sum.outputs.run_nancy == 'true' }}
+        if: steps.check_nancy.outputs.run_nancy == 'true'
         uses: sonatype-nexus-community/nancy-github-action@main
         with:
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           nancyVersion: latest
-          nancyCommand: sleuth --loud
+          nancyCommand: >-
+            sleuth
+            --username ${{ vars.OSS_INDEX_USERNAME }}
+            --token ${{ secrets.OSS_INDEX_TOKEN }}
+            --loud

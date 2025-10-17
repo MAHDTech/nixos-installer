@@ -54,9 +54,8 @@ jobs:
       fail-fast: false
       matrix:
         go-version:
-          - "1.22"
-          - "1.23"
           - "1.24"
+          - "1.25"
         go-os:
           - "linux"
           - "darwin"
@@ -69,14 +68,14 @@ jobs:
     steps:
       - id: checkout_repository
         name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           lfs: false
           submodules: recursive
 
       - id: go_setup
         name: Set up Go (${{ matrix.go-version }})
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           check-latest: true
           go-version: ${{ matrix.go-version }}
