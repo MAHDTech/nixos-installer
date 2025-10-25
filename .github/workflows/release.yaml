@@ -283,7 +283,7 @@ jobs:
 
       - id: download_artifacts
         name: Download Build Artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         env:
           REPO_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}
         with:
