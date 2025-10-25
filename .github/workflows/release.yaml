@@ -140,7 +140,7 @@ jobs:
 
       - id: upload_artifact
         name: Upload Build Artifact (${{ matrix.goos }}-${{ matrix.goarch }})
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         env:
           REPO_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}
           ARTIFACT_NAME: ${{ steps.set_outputs.outputs.REPO_NAME }}-${{ matrix.goos }}-${{ matrix.goarch }}
