@@ -2,6 +2,8 @@
 
 Installs NixOS using ZFS in an opinionated way.
 
+_Archived — replaced by the amazing disko for declarative disk partitioning._
+
 ## Background
 
 This installs NixOS from a configuration file;
