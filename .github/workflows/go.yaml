@@ -113,7 +113,7 @@ jobs:
 
       - id: go_lint
         name: Go Lint
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v9
         with:
           working-directory: ${{ env.GOHOME }}
           version: latest
